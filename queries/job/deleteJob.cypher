@@ -1,0 +1,2 @@
+MATCH (job: Job)
+DETACH DELETE job
