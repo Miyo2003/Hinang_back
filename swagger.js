@@ -10,7 +10,7 @@ const options = {
       description: 'API documentation for Hinang',
     },
     servers: [
-      { url: 'http://localhost:8000', description: 'Local development server' }
+      { url: 'https://hinang-back.onrender.com/', description: 'Live server on render' }
     ],
     components: {
       securitySchemes: {
