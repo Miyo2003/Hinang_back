@@ -1,33 +1,18 @@
 // models/workerModel.js
-const fs = require('fs');
 const path = require('path');
-const driver = require('../db/neo4j');// Import the driver from your existing file
+const driver = require('../db/neo4j');
+const loadQueries = require('../utils/cypherLoader');
+const { retry } = require('../utils/retryUtils');
 
-// Load all queries from files
-const loadQueries = () => {
-    const queryDir = path.join(__dirname, '../queries/worker');
-    const queryFiles = fs.readdirSync(queryDir);
-    const queries = {};
-
-    queryFiles.forEach(file => {
-        const queryName = path.basename(file, '.cypher');
-        queries[queryName] = fs.readFileSync(path.join(queryDir, file), 'utf8');
-    });
-    return queries;
-};
-
+const queries = loadQueries(path.join(__dirname, '../queries/worker'));
 
 const executeQuery = async (queryName, params = {}) => {
   const session = driver.session();
   try {
-    const queries = loadQueries();
     const query = queries[queryName];
-    
-    if (!query) {
-      throw new Error(`Query ${queryName} not found`);
-    }
-    
-    const result = await session.run(query, params);
+    if (!query) throw new Error(`Query "${queryName}" not found in /queries/worker`);
+
+    const result = await retry(async () => await session.run(query, params));
     return result.records.map(record => {
       const recordObj = {};
       record.keys.forEach(key => {
@@ -36,93 +21,72 @@ const executeQuery = async (queryName, params = {}) => {
       return recordObj;
     });
   } catch (error) {
-    console.error(`Error executing ${queryName}:`, error);
-    throw error;
+    console.error(`[workerModel] Error executing query '${queryName}':`, error);
+    throw new Error(`[workerModel] ${error.message}`);
   } finally {
     await session.close();
   }
 };
 
 const workerModel = {
-
   createWorker: async (workerData) => {
     const records = await executeQuery('createWorker', workerData);
-    return records[0]?.worker || null;
+    return records[0]?.worker?.properties || null;
   },
 
-  // Get all workers
   getWorkers: async () => {
     const records = await executeQuery('getWorker');
-    return records.map(record => record.worker);
+    return records.map(record => record.worker?.properties).filter(Boolean);
   },
 
-  // Get worker by ID
   getWorkerById: async (id) => {
     const records = await executeQuery('getWorkerById', { id });
-    return records[0] || null; // Returns worker and user if available
+    return records[0]?.worker?.properties || null;
   },
 
-  // Update worker by ID (individual properties)
-  updateWorker: async (id, workerData) => {
-    const records = await executeQuery('updateWorker', { id, ...workerData });
-    return records[0]?.worker || null;
-  },
-
-  // Update worker by ID (with properties map)
   updateWorkerById: async (id, updates) => {
     const records = await executeQuery('updateWorkerById', { id, updates });
-    return records[0]?.worker || null;
+    return records[0]?.worker?.properties || null;
   },
 
-  // Delete all workers
-  deleteWorkers: async () => {
-    return await executeQuery('deleteWorker');
-  },
-
-  // Delete worker by ID
   deleteWorkerById: async (id) => {
     const records = await executeQuery('deleteWorkerById', { id });
-    return records[0]?.deleteWorker || null;
+    return records[0]?.deleteWorker?.properties || null;
   },
 
-  // Insert a new node and connect to worker
+  getWorkersByUserId: async (userId) => {
+    const records = await executeQuery('getWorkersByUserId', { userId });
+    return records.map(record => record.worker?.properties).filter(Boolean);
+  },
+
+  // Updated: Use APOC for safe dynamic node creation
   insertNodeToWorker: async (id, label, props, relation) => {
+    const allowedLabels = ['Profile', 'Skill', 'Portfolio', 'Attachment'];
+    const allowedRelations = ['HAS_PROFILE', 'HAS_SKILL', 'HAS_PORTFOLIO', 'HAS_ATTACHMENT'];
+
+    if (!allowedLabels.includes(label)) throw new Error(`Invalid label: ${label}`);
+    if (!allowedRelations.includes(relation)) throw new Error(`Invalid relation: ${relation}`);
+
     const session = driver.session();
     try {
-      const queries = loadQueries();
-      let query = queries.insertNodeToWorker;
-      
-      if (!query) {
-        throw new Error('insertNodeToWorker query not found');
-      }
-      
-      // Replace placeholders with actual values
-      query = query.replace('`${label}`', label);
-      query = query.replace('`$relation`', relation);
-      
-      const result = await session.run(query, { id, props });
+      const query = `
+        MATCH (worker:Worker {id: $id})
+        CALL apoc.create.node([apoc.text.capitalize($label)], $props) YIELD node AS n
+        WITH worker, n
+        CALL apoc.create.relationship(worker, apoc.text.upper($relation), {}, n) YIELD rel
+        RETURN worker, n
+      `;
+      const result = await retry(async () => await session.run(query, { id, label, props, relation }));
       const record = result.records[0];
-      
-      if (record) {
-        return {
-          worker: record.get('worker'),
-          node: record.get('n')
-        };
-      }
-      return null;
-    } catch (error) {
-      console.error('Error inserting node to worker:', error);
-      throw error;
+      if (!record) return null;
+      return {
+        worker: record.get('worker')?.properties || null,
+        node: record.get('n')?.properties || null
+      };
     } finally {
       await session.close();
     }
-  },
-  // Get workers by user ID - now using the query file
-  getWorkersByUserId: async (userId) => {
-    const records = await executeQuery('getWorkersByUserId', { userId });
-    return records.map(record => record.worker);
   }
-
 };
 
 module.exports = workerModel;

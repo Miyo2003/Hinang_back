@@ -1,44 +1,57 @@
-const fs = require('fs');
+// models/paymentModel.js
 const path = require('path');
 const driver = require('../db/neo4j');
+const loadQueries = require('../utils/cypherLoader');
+const { retry } = require('../utils/retryUtils');
 
-const loadQueries = () => {
-  const queryDir = path.join(__dirname, '../queries/payment');
-  const queryFiles = fs.readdirSync(queryDir);
-  const queries = {};
-  queryFiles.forEach(file => {
-    const queryName = path.basename(file, '.cypher');
-    queries[queryName] = fs.readFileSync(path.join(queryDir, file), 'utf8');
-  });
-  return queries;
-};
+const queries = loadQueries(path.join(__dirname, '../queries/payment'));
 
-const executeQuery = async (queryName, params = {}) => {
+const runQuery = async (name, params = {}) => {
   const session = driver.session();
   try {
-    const queries = loadQueries();
-    const query = queries[queryName];
-    const result = await session.run(query, params);
-    return result.records.map(record => {
-      const obj = {};
-      record.keys.forEach(key => obj[key] = record.get(key));
-      return obj;
-    });
-  } finally { await session.close(); }
+    const query = queries[name];
+    if (!query) throw new Error(`[paymentModel] Query "${name}" missing`);
+    const result = await retry(async () => await session.run(query, params));
+    return result.records;
+  } finally {
+    await session.close();
+  }
 };
 
 const paymentModel = {
-  createPayment: async (jobId, clientId, workerId, amount, status) => {
-    const records = await executeQuery('createPayment', { jobId, clientId, workerId, amount, status });
-    return records[0]?.p || null;
+  createPayment: async ({ jobId, clientId, workerId, amount, method, status }) => {
+    const records = await runQuery('createPayment', { jobId, clientId, workerId, amount, method, status });
+    return records[0]?.p?.properties || null;
   },
+
   getPaymentsByJobId: async (jobId) => {
-    const records = await executeQuery('getPaymentsByJobId', { jobId });
-    return records.map(r => r.p);
+    const records = await runQuery('getPaymentsByJobId', { jobId });
+    return records.map(r => r.p?.properties).filter(Boolean);
   },
+
   getPaymentsByUserId: async (userId) => {
-    const records = await executeQuery('getPaymentsByUserId', { userId });
-    return records.map(r => r.p);
+    const records = await runQuery('getPaymentsByUserId', { userId });
+    return records.map(r => r.p?.properties).filter(Boolean);
+  },
+
+  updatePaymentStatus: async (id, status) => {
+    const records = await runQuery('updatePaymentStatus', { id, status });
+    return records[0]?.p?.properties || null;
+  },
+
+  createEscrowPayment: async ({ jobId, paymentId, clientId, createdAt }) => {
+    const records = await runQuery('createEscrowPayment', { jobId, paymentId, clientId, createdAt });
+    return records[0]?.escrow?.properties || null;
+  },
+
+  releaseEscrow: async ({ jobId, escrowId, releasedBy, releasedAt }) => {
+    const records = await runQuery('releaseEscrow', { jobId, escrowId, releasedBy, releasedAt });
+    return records[0]?.result || null;
+  },
+
+  refundEscrow: async ({ jobId, escrowId, refundedBy, refundedAt, reason }) => {
+    const records = await runQuery('refundEscrow', { jobId, escrowId, refundedBy, refundedAt, reason });
+    return records[0]?.result || null;
   }
 };
 

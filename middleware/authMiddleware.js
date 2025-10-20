@@ -1,17 +1,27 @@
+// middleware/authMiddleware.js
 const jwt = require('jsonwebtoken');
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecret';
 
 const authMiddleware = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // "Bearer TOKEN"
+  const header = req.headers.authorization;
+  if (!header?.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, message: 'Authorization header missing or malformed' });
+  }
 
-  if (!token) return res.status(401).json({ success: false, message: 'No token provided' });
+  const token = header.split(' ')[1];
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ success: false, message: 'Invalid token' });
-    req.user = user; // attach user to request
+  if (!process.env.JWT_SECRET) {
+    console.error('JWT_SECRET is not defined');
+    return res.status(500).json({ success: false, message: 'Server misconfiguration' });
+  }
+
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = { id: payload.id, role: payload.role };
     next();
-  });
+  } catch (err) {
+    console.error('JWT verification failed:', err.message);
+    res.status(401).json({ success: false, message: 'Invalid or expired token' });
+  }
 };
 
 module.exports = { authMiddleware };

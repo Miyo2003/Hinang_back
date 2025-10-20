@@ -1,33 +1,40 @@
-const neo4j = require('../db/neo4j');
-const fs = require('fs').promises;
+// models/transactionModel.js
 const path = require('path');
+const driver = require('../db/neo4j');
+const loadQueries = require('../utils/cypherLoader');
+const { retry } = require('../utils/retryUtils');
 
-class TransactionModel {
-    constructor() {
-        this.createTransactionQuery = fs.readFile(path.join(__dirname, '../queries/transaction/createTransaction.cypher'), 'utf8');
+const queries = loadQueries(path.join(__dirname, '../queries/transaction'));
+
+const executeQuery = async (queryName, params = {}) => {
+  const session = driver.session();
+  try {
+    const query = queries[queryName];
+    if (!query) throw new Error(`Query "${queryName}" not found`);
+    const result = await retry(async () => await session.run(query, params));
+    return result.records.map(record => {
+      const obj = {};
+      record.keys.forEach(key => obj[key] = record.get(key));
+      return obj;
+    });
+  } catch (error) {
+    if (error.message.includes('insufficient balance')) {
+      throw new Error('Insufficient balance for transaction');
     }
+    throw error;
+  } finally {
+    await session.close();
+  }
+};
 
-    async createTransaction(fromWalletId, toWalletId, amount, type, description) {
-        const session = neo4j.session();
-        try {
-            const query = await this.createTransactionQuery;
-            const result = await session.run(query, {
-                fromWalletId,
-                toWalletId,
-                amount,
-                type,
-                description
-            });
-            return result.records[0]?.get('t').properties || null;
-        } catch (error) {
-            if (error.message.includes('insufficient balance')) {
-                throw new Error('Insufficient balance for transaction');
-            }
-            throw error;
-        } finally {
-            await session.close();
-        }
+const transactionModel = {
+  createTransaction: async (fromWalletId, toWalletId, amount, type, description) => {
+    if (!fromWalletId || !toWalletId || amount <= 0 || !type) {
+      throw new Error('Invalid transaction parameters');
     }
-}
+    const records = await executeQuery('createTransaction', { fromWalletId, toWalletId, amount, type, description });
+    return records[0]?.t?.properties || null;
+  }
+};
 
-module.exports = new TransactionModel();
+module.exports = transactionModel;

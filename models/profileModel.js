@@ -1,6 +1,7 @@
 const neo4j = require('../db/neo4j');
 const fs = require('fs').promises;
 const path = require('path');
+const { retry } = require('../utils/retryUtils');
 
 class ProfileModel {
     constructor() {
@@ -11,7 +12,7 @@ class ProfileModel {
         const session = neo4j.session();
         try {
             const query = await this.getProfileQuery;
-            const result = await session.run(query, { userId });
+            const result = await retry(async () => await session.run(query, { userId }));
             const record = result.records[0];
             if (!record) return null;
 
@@ -33,13 +34,13 @@ class ProfileModel {
         const session = neo4j.session();
         try {
             const query = await this.updateProfileQuery;
-            const result = await session.run(query, { 
+            const result = await retry(async () => await session.run(query, { 
                 userId,
                 profileData: {
                     ...profileData,
                     updatedAt: new Date().toISOString()
                 }
-            });
+            }));
             return result.records[0]?.get('p').properties || null;
         } finally {
             await session.close();

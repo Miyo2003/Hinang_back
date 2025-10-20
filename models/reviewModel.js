@@ -1,33 +1,20 @@
-const fs = require('fs');
+// models/reviewModel.js
 const path = require('path');
 const driver = require('../db/neo4j');
+const loadQueries = require('../utils/cypherLoader');
+const { retry } = require('../utils/retryUtils');
 
-const loadQueries = () => {
-  const queryDir = path.join(__dirname, '../queries/review');
-  const queryFiles = fs.readdirSync(queryDir);
-  const queries = {};
-
-  queryFiles.forEach(file => {
-    const queryName = path.basename(file, '.cypher');
-    queries[queryName] = fs.readFileSync(path.join(queryDir, file), 'utf8');
-  });
-
-  return queries;
-};
+const queries = loadQueries(path.join(__dirname, '../queries/review'));
 
 const executeQuery = async (queryName, params = {}) => {
   const session = driver.session();
   try {
-    const queries = loadQueries();
     const query = queries[queryName];
-    if (!query) throw new Error(`Query ${queryName} not found`);
-
-    const result = await session.run(query, params);
+    if (!query) throw new Error(`Query "${queryName}" not found`);
+    const result = await retry(async () => await session.run(query, params));
     return result.records.map(record => {
       const obj = {};
-      record.keys.forEach(key => {
-        obj[key] = record.get(key);
-      });
+      record.keys.forEach(key => obj[key] = record.get(key));
       return obj;
     });
   } finally {
@@ -36,24 +23,31 @@ const executeQuery = async (queryName, params = {}) => {
 };
 
 const reviewModel = {
-  createReview: async (reviewerId, targetId, rating, comment) => {
-    const records = await executeQuery('createReview', { reviewerId, targetId, rating, comment });
-    return records[0]?.r || null;
+  createReview: async ({ reviewerId, targetUserId, jobId, rating, comment, timestamp = new Date().toISOString() }) => {
+    if (rating < 1 || rating > 5) throw new Error('Rating must be between 1 and 5');
+    const records = await executeQuery('createReview', { reviewerId, targetUserId, jobId, rating, comment, timestamp });
+    return records[0]?.r?.properties || null;
   },
 
-  getReviewsForUser: async (userId) => {
+  getReviewsByUserId: async (userId) => {
     const records = await executeQuery('getReviewsForUser', { userId });
-    return records.map(record => ({ review: record.r, reviewer: record.reviewer }));
+    return records.map(r => ({
+      review: r.r?.properties || null,
+      reviewer: r.reviewer?.properties || null
+    })).filter(r => r.review);
   },
 
-  getReviewsByReviewer: async (reviewerId) => {
+  getReviewsByReviewerId: async (reviewerId) => {
     const records = await executeQuery('getReviewsByReviewer', { reviewerId });
-    return records.map(record => ({ review: record.r, target: record.target }));
+    return records.map(r => ({
+      review: r.r?.properties || null,
+      target: r.target?.properties || null
+    })).filter(r => r.review);
   },
 
   deleteReviewById: async (id) => {
     const records = await executeQuery('deleteReviewById', { id });
-    return records[0]?.deletedReview || null;
+    return records[0]?.deletedReview?.properties || null;
   }
 };
 

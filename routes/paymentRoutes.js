@@ -3,14 +3,70 @@ const router = express.Router();
 const paymentController = require('../controllers/paymentController');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
+const validationMiddleware = require('../middleware/validationMiddleware');
+const featureMiddleware = require('../middleware/featureMiddleware');
+/**
+ * @swagger
+ * tags:
+ *   name: Payments
+ *   description: Payment processing and escrow management
+ */
 
 /**
- * @openapi
- * /payments:
+ * @swagger
+ * components:
+ *   schemas:
+ *     Payment:
+ *       type: object
+ *       required:
+ *         - amount
+ *         - currency
+ *         - jobId
+ *       properties:
+ *         id:
+ *           type: string
+ *           description: Unique identifier for the payment
+ *         amount:
+ *           type: number
+ *           description: Payment amount
+ *           minimum: 0.01
+ *         currency:
+ *           type: string
+ *           description: Payment currency (3-letter code)
+ *           example: USD
+ *         jobId:
+ *           type: string
+ *           description: ID of the associated job
+ *         status:
+ *           type: string
+ *           enum: [pending, processing, completed, failed, refunded]
+ *           default: pending
+ *         paymentMethod:
+ *           type: string
+ *           enum: [card, bank_transfer, wallet]
+ *         paymentProvider:
+ *           type: string
+ *           enum: [stripe, mongopay]
+ *         escrow:
+ *           type: boolean
+ *           description: Whether this is an escrow payment
+ *         metadata:
+ *           type: object
+ *           description: Additional payment details
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ */
+
+/**
+ * @swagger
+ * /api/payments:
  *   post:
- *     summary: Create a new payment (client/admin only)
- *     tags:
- *       - Payments
+ *     summary: Create a new payment
+ *     tags: [Payments]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -18,28 +74,28 @@ const roleMiddleware = require('../middleware/roleMiddleware');
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - jobId
- *               - amount
- *             properties:
- *               jobId:
- *                 type: string
- *               amount:
- *                 type: number
+ *             $ref: '#/components/schemas/Payment'
  *     responses:
- *       200:
- *         description: Payment created
+ *       201:
+ *         description: Payment created successfully
+ *       400:
+ *         description: Invalid input data
+ *       401:
+ *         description: Unauthorized
  */
-router.post('/', authMiddleware, roleMiddleware(['client', 'admin']), paymentController.create);
+router.post('/', 
+  authMiddleware, 
+  roleMiddleware(['client', 'admin']), 
+  validationMiddleware.validate(validationMiddleware.paymentSchema),
+  paymentController.create
+);
 
 /**
- * @openapi
- * /payments/job/{jobId}:
+ * @swagger
+ * /api/payments/job/{jobId}:
  *   get:
- *     summary: Get payments for a job
- *     tags:
- *       - Payments
+ *     summary: Get payments for a specific job
+ *     tags: [Payments]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -50,17 +106,20 @@ router.post('/', authMiddleware, roleMiddleware(['client', 'admin']), paymentCon
  *           type: string
  *     responses:
  *       200:
- *         description: List of payments
+ *         description: List of payments for the job
  */
-router.get('/job/:jobId', authMiddleware, paymentController.getByJob);
+router.get('/job/:jobId', 
+  authMiddleware,
+  validationMiddleware.validate(validationMiddleware.jobIdSchema),
+  paymentController.getByJob
+);
 
 /**
- * @openapi
- * /payments/user/{userId}:
+ * @swagger
+ * /api/payments/user/{userId}:
  *   get:
- *     summary: Get payments for a user
- *     tags:
- *       - Payments
+ *     summary: Get payments for a specific user
+ *     tags: [Payments]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -71,17 +130,20 @@ router.get('/job/:jobId', authMiddleware, paymentController.getByJob);
  *           type: string
  *     responses:
  *       200:
- *         description: List of payments
+ *         description: List of user's payments
  */
-router.get('/user/:userId', authMiddleware, paymentController.getByUser);
+router.get('/user/:userId', 
+  authMiddleware,
+  validationMiddleware.validate(validationMiddleware.userIdSchema),
+  paymentController.getByUser
+);
 
 /**
- * @openapi
- * /payments/{id}/status:
+ * @swagger
+ * /api/payments/{id}/status:
  *   put:
- *     summary: Update payment status (client/admin only)
- *     tags:
- *       - Payments
+ *     summary: Update payment status
+ *     tags: [Payments]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -101,10 +163,135 @@ router.get('/user/:userId', authMiddleware, paymentController.getByUser);
  *             properties:
  *               status:
  *                 type: string
+ *                 enum: [pending, processing, completed, failed, refunded]
  *     responses:
  *       200:
  *         description: Payment status updated
  */
-router.put('/:id/status', authMiddleware, roleMiddleware(['client', 'admin']), paymentController.updateStatus);
+router.put('/:id/status', 
+  authMiddleware, 
+  roleMiddleware(['client', 'admin']), 
+  validationMiddleware.validate(validationMiddleware.paymentStatusSchema),
+  paymentController.updateStatus
+);
+
+/**
+ * @swagger
+ * /api/payments/escrow:
+ *   post:
+ *     summary: Create an escrow payment
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - jobId
+ *               - amount
+ *               - currency
+ *     responses:
+ *       201:
+ *         description: Escrow payment created
+ */
+router.post('/escrow', 
+  authMiddleware, 
+  roleMiddleware(['client', 'admin']), 
+  featureMiddleware('escrowEnabled'),
+  validationMiddleware.validate(validationMiddleware.escrowPaymentSchema),
+  paymentController.createEscrowPayment
+);
+
+/**
+ * @swagger
+ * /api/payments/escrow/{jobId}/release:
+ *   post:
+ *     summary: Release escrow payment
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: jobId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Escrow payment released
+ */
+router.post('/escrow/:jobId/release', 
+  authMiddleware, 
+  roleMiddleware(['client', 'admin']), 
+  featureMiddleware('escrowEnabled'),
+  validationMiddleware.validate(validationMiddleware.jobIdSchema),
+  paymentController.releaseEscrow
+);
+
+/**
+ * @swagger
+ * /api/payments/escrow/{jobId}/refund:
+ *   post:
+ *     summary: Refund escrow payment (admin only)
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: jobId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Escrow payment refunded
+ */
+router.post('/escrow/:jobId/refund', 
+  authMiddleware, 
+  roleMiddleware(['admin']), 
+  featureMiddleware('escrowEnabled'),
+  validationMiddleware.validate(validationMiddleware.jobIdSchema),
+  paymentController.refundEscrow
+);
+
+// Webhook endpoints — raw body already parsed in index.js
+/**
+ * @swagger
+ * /api/payments/webhook/mongopay:
+ *   post:
+ *     summary: Handle Mongopay webhook events
+ *     tags: [Payments]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Webhook processed successfully
+ */
+router.post('/webhook/mongopay', paymentController.handleMongopayWebhook);
+
+/**
+ * @swagger
+ * /api/payments/webhook/stripe:
+ *   post:
+ *     summary: Handle Stripe webhook events
+ *     tags: [Payments]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Webhook processed successfully
+ */
+router.post('/webhook/stripe', paymentController.handleStripeWebhook);
 
 module.exports = router;

@@ -1,5 +1,5 @@
 const applicationModel = require('../models/applicationModel');
-
+const logger = require('../utils/logger');
 const applicationController = {
   apply: async (req, res) => {
     try {

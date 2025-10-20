@@ -1,41 +1,45 @@
-const neo4j = require('../db/neo4j');
-const fs = require('fs').promises;
+// models/walletModel.js
 const path = require('path');
+const driver = require('../db/neo4j');
+const loadQueries = require('../utils/cypherLoader');
+const { retry } = require('../utils/retryUtils');
 
-class WalletModel {
-    constructor() {
-        this.createWalletQuery = fs.readFile(path.join(__dirname, '../queries/wallet/createWallet.cypher'), 'utf8');
-        this.getWalletDetailsQuery = fs.readFile(path.join(__dirname, '../queries/wallet/getWalletDetails.cypher'), 'utf8');
-    }
+const queries = loadQueries(path.join(__dirname, '../queries/wallet'));
 
-    async createWallet(userId, currency = 'USD') {
-        const session = neo4j.session();
-        try {
-            const query = await this.createWalletQuery;
-            const result = await session.run(query, { userId, currency });
-            return result.records[0]?.get('w').properties || null;
-        } finally {
-            await session.close();
-        }
-    }
+const executeQuery = async (queryName, params = {}) => {
+  const session = driver.session();
+  try {
+    const query = queries[queryName];
+    if (!query) throw new Error(`Query "${queryName}" not found`);
+    const result = await retry(async () => await session.run(query, params));
+    return result.records.map(record => {
+      const obj = {};
+      record.keys.forEach(key => obj[key] = record.get(key));
+      return obj;
+    });
+  } finally {
+    await session.close();
+  }
+};
 
-    async getWalletDetails(userId) {
-        const session = neo4j.session();
-        try {
-            const query = await this.getWalletDetailsQuery;
-            const result = await session.run(query, { userId });
-            const record = result.records[0];
-            if (!record) return null;
+const walletModel = {
+  createWallet: async (userId, currency = 'USD') => {
+    if (!userId) throw new Error('User ID is required');
+    const records = await executeQuery('createWallet', { userId, currency });
+    return records[0]?.w?.properties || null;
+  },
 
-            return {
-                balance: record.get('balance'),
-                currency: record.get('currency'),
-                transactions: record.get('transactions').map(t => t.properties)
-            };
-        } finally {
-            await session.close();
-        }
-    }
-}
+  getWalletDetails: async (userId) => {
+    const records = await executeQuery('getWalletDetails', { userId });
+    const record = records[0];
+    if (!record) return null;
 
-module.exports = new WalletModel();
+    return {
+      balance: record.balance,
+      currency: record.currency,
+      transactions: record.transactions?.map(t => t.properties) || []
+    };
+  }
+};
+
+module.exports = walletModel;

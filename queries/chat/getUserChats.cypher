@@ -1,4 +1,7 @@
-MATCH (me:User {id: $userId})-[:SENT]->(m:Message)-[:TO]->(partner:User)
-WITH partner, max(m.timestamp) AS lastMessageTime
-RETURN partner, lastMessageTime
-ORDER BY lastMessageTime DESC
+MATCH (u:User {id: $userId})-[:PARTICIPATES_IN]->(c:Chat)-[:HAS_MESSAGE]->(m:Message)
+WITH c, max(m.createdAt) AS lastMessageTime, u
+MATCH (c)-[:PARTICIPATES_IN]-(p:User) WHERE p <> u
+RETURN p AS partner, lastMessageTime
+ORDER BY lastMessageTime ${$order}
+SKIP $offset
+LIMIT $limit

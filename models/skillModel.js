@@ -1,75 +1,80 @@
-const fs = require('fs');
+// models/skillModel.js
 const path = require('path');
 const driver = require('../db/neo4j');
+const loadQueries = require('../utils/cypherLoader');
+const { retry } = require('../utils/retryUtils');
 
-const loadQueries = () => {
-  const queryDir = path.join(__dirname, '../queries/skill');
-  const queryFiles = fs.readdirSync(queryDir);
-  const queries = {};
-  queryFiles.forEach(file => {
-    const queryName = path.basename(file, '.cypher');
-    queries[queryName] = fs.readFileSync(path.join(queryDir, file), 'utf8');
-  });
-  return queries;
-};
+const queries = loadQueries(path.join(__dirname, '../queries/skill'));
 
 const executeQuery = async (queryName, params = {}) => {
   const session = driver.session();
   try {
-    const queries = loadQueries();
     const query = queries[queryName];
-    const result = await session.run(query, params);
-    return result.records.map(record => {
-      const obj = {};
-      record.keys.forEach(key => obj[key] = record.get(key));
-      return obj;
-    });
-  } finally { await session.close(); }
+    if (!query) {
+      throw new Error(`Query ${queryName} not found in /queries/skill`);
+    }
+    const result = await retry(async () => await session.run(query, params));
+    return result.records;
+  } finally {
+    await session.close();
+  }
 };
 
 const skillModel = {
   createSkill: async (name) => {
     const records = await executeQuery('createSkill', { name });
-    return records[0]?.skill || null;
+    return records[0]?.get('skill')?.properties || null;
   },
 
   getAllSkills: async () => {
     const records = await executeQuery('getAllSkills');
-    return records.map(r => r.skill);
+    return records
+      .map(r => r.get('skill')?.properties)
+      .filter(Boolean);
   },
 
   getSkillById: async (id) => {
     const records = await executeQuery('getSkillById', { id });
-    return records[0]?.skill || null;
+    return records[0]?.get('skill')?.properties || null;
   },
 
   updateSkill: async (id, name) => {
     const records = await executeQuery('updateSkill', { id, name });
-    return records[0]?.skill || null;
+    return records[0]?.get('skill')?.properties || null;
   },
 
   deleteSkill: async (id) => {
     const records = await executeQuery('deleteSkill', { id });
-    return records[0]?.result || null;
+    return records[0]?.get('result') || null;
   },
 
   getWorkerSkills: async (workerId) => {
     const records = await executeQuery('getWorkerSkills', { workerId });
-    return records.map(r => r.skill);
+    return records
+      .map(r => r.get('skill')?.properties)
+      .filter(Boolean);
+  },
+
+  getSkillsByUserId: async (userId) => {
+    return skillModel.getWorkerSkills(userId);
   },
 
   addSkillToWorker: async (workerId, skillName) => {
     const records = await executeQuery('addSkillToWorker', { workerId, skillName });
     return records[0] || null;
   },
+
   getWorkersBySkill: async (skillName) => {
     const records = await executeQuery('getWorkersBySkill', { skillName });
-    return records.map(r => r.worker);
+    return records
+      .map(r => r.get('worker')?.properties)
+      .filter(Boolean);
   },
+
   categorizeJob: async (jobId, categoryName) => {
     const records = await executeQuery('categorizeJob', { jobId, categoryName });
     return records[0] || null;
   }
 };
 
-module.exports = skillModel
+module.exports = skillModel;

@@ -1,86 +1,74 @@
 // models/messageModel.js
-const fs = require('fs');
 const path = require('path');
 const driver = require('../db/neo4j');
+const loadQueries = require('../utils/cypherLoader');
+const { retry } = require('../utils/retryUtils');
 
-// Load queries from /queries/chat
-const loadQueries = () => {
-  const queryDir = path.join(__dirname, '../queries/chat');
-  const queryFiles = fs.readdirSync(queryDir);
-  const queries = {};
+const queries = loadQueries(path.join(__dirname, '../queries/message'));
 
-  queryFiles.forEach(file => {
-    const queryName = path.basename(file, '.cypher');
-    queries[queryName] = fs.readFileSync(path.join(queryDir, file), 'utf8');
-  });
-
-  return queries;
-};
-
-// Execute a Cypher query
-const executeQuery = async (queryName, params = {}) => {
+const runQuery = async (name, params = {}) => {
   const session = driver.session();
   try {
-    const queries = loadQueries();
-    const query = queries[queryName];
-    if (!query) throw new Error(`Query ${queryName} not found`);
-
-    const result = await session.run(query, params);
-    return result.records.map(record => {
-      const recordObj = {};
-      record.keys.forEach(key => {
-        recordObj[key] = record.get(key);
-      });
-      return recordObj;
-    });
-  } catch (error) {
-    console.error(`Error executing ${queryName}:`, error);
-    throw error;
+    const query = queries[name];
+    if (!query) throw new Error(`[messageModel] Query "${name}" missing`);
+    const result = await retry(async () => await session.run(query, params));
+    return result.records;
   } finally {
     await session.close();
   }
 };
 
 const messageModel = {
-  // Send a message from sender to receiver
-  createMessage: async (senderId, receiverId, content) => {
-    const records = await executeQuery('createMessage', { senderId, receiverId, content });
-    return records[0]?.message || null;
+  createMessage: async (payload) => {
+    const records = await runQuery('createMessage', payload);
+    if (!records.length) return null;
+
+    const record = records[0];
+    return {
+      message: record.get('message')?.properties || null,
+      attachments: record.get('attachments')?.map(a => a.properties) || []
+    };
   },
 
-  // Get full conversation between two users
-  getConversation: async (userId1, userId2) => {
-    const records = await executeQuery('getConversation', { userId1, userId2 });
-    return records.map(r => r.m.properties); // return message properties only
+  appendAttachment: async (messageId, attachment) => {
+    const records = await runQuery('appendAttachment', { messageId, attachment });
+    return records[0]?.get('attachment')?.properties || null;
   },
 
-  // Get all messages sent by a user
-  getMessagesByUserId: async (userId) => {
-    const records = await executeQuery('getMessagesByUserId', { userId });
+  getConversation: async (chatId, { limit = 50, before } = {}) => {
+    const records = await runQuery('getConversation', { chatId, limit: parseInt(limit, 10), before });
     return records.map(r => ({
-      message: r.message.properties,
-      receiver: r.receiver?.properties || null
-    }));
+      message: r.get('message')?.properties || null,
+      sender: r.get('sender')?.properties || null,
+      attachments: r.get('attachments')?.map(a => a.properties) || [],
+      replyTo: r.get('replyTo')?.properties || null
+    })).filter(m => m.message);
   },
 
-  // Delete a message by ID
-  deleteMessageById: async (id) => {
-    const records = await executeQuery('deleteMessageById', { id });
-    return records[0]?.deletedMessage || null;
+  getMessageById: async (id) => {
+    const records = await runQuery('getMessageById', { id });
+    const record = records[0];
+    if (!record) return null;
+    return {
+      message: record.get('message')?.properties || null,
+      attachments: record.get('attachments')?.map(a => a.properties) || [],
+      replyTo: record.get('replyTo')?.properties || null
+    };
   },
 
-  // Get all distinct chats for a user (all conversation partners)
-  getUserChats: async (userId) => {
-    const messages = await executeQuery('getMessagesByUserId', { userId });
-    const partnersMap = {};
+  markAsRead: async ({ messageId, readerId, readAt }) => {
+    const records = await runQuery('markAsRead', { messageId, readerId, readAt });
+    return records[0]?.get('message')?.properties || null;
+  },
 
-    messages.forEach(r => {
-      if (r.receiver) {
-        partnersMap[r.receiver.properties.id] = r.receiver.properties;
-      }
-    });
+  updateMessageSubject: async ({ messageId, subject, updatedBy }) => {
+    const records = await runQuery('updateMessageSubject', { messageId, subject, updatedBy });
+    return records[0]?.get('message')?.properties || null;
+  },
 
-    return Object.values(partnersMap);
+  deleteMessage: async ({ messageId, deletedBy }) => {
+    const records = await runQuery('softDeleteMessage', { messageId, deletedBy });
+    return records[0]?.get('message')?.properties || null;
   }
 };
 

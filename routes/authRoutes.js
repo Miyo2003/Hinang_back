@@ -1,15 +1,99 @@
+// routes/authRoutes.js
 const express = require('express');
 const router = express.Router();
+
 const authController = require('../controllers/authController');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 /**
- * @openapi
+ * @swagger
+ * tags:
+ *   name: Authentication
+ *   description: User authentication and registration
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     User:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           description: The auto-generated id of the user
+ *         username:
+ *           type: string
+ *           description: The username of the user
+ *         role:
+ *           type: string
+ *           enum: [client, worker, admin]
+ *           description: The role of the user
+ *         email:
+ *           type: string
+ *           format: email
+ *           description: The email of the user
+ *         firstName:
+ *           type: string
+ *           description: The first name of the user
+ *         middleName:
+ *           type: string
+ *           description: The middle name of the user
+ *         familyName:
+ *           type: string
+ *           description: The family name of the user
+ *         phoneNumber:
+ *           type: string
+ *           description: The phone number of the user
+ *         gender:
+ *           type: string
+ *           enum: [male, female, other]
+ *           description: The gender of the user
+ *         age:
+ *           type: integer
+ *           minimum: 18
+ *           description: The age of the user
+ *         address:
+ *           type: string
+ *           description: The address of the user
+ *         status:
+ *           type: string
+ *           enum: [active, inactive, pending]
+ *           description: The status of the user
+ *       example:
+ *         id: "123456"
+ *         username: "johndoe"
+ *         role: "client"
+ *         email: "john.doe@example.com"
+ *         firstName: "John"
+ *         middleName: "William"
+ *         familyName: "Doe"
+ *         phoneNumber: "+1234567890"
+ *         gender: "male"
+ *         age: 30
+ *         address: "123 Main St, City, Country"
+ *         status: "active"
+ *     AuthResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *         message:
+ *           type: string
+ *         token:
+ *           type: string
+ *         user:
+ *           $ref: '#/components/schemas/User'
+ */
+
+/**
+ * @swagger
  * /auth/register:
  *   post:
- *     summary: Register a new user
- *     tags:
- *       - Auth
+ *     summary: Register a new user with email verification
+ *     description: Registers a new user with real-time email verification using Abstract API. 
+ *                 Checks email deliverability, quality, and security before registration.
+ *     tags: [Authentication]
  *     requestBody:
  *       required: true
  *       content:
@@ -17,54 +101,64 @@ const { authMiddleware } = require('../middleware/authMiddleware');
  *           schema:
  *             type: object
  *             required:
- *               - username
+ *               - email
  *               - password
+ *               - username
  *               - role
  *               - firstName
  *               - familyName
- *               - email
+ *               - phoneNumber
+ *               - gender
+ *               - age
+ *               - address
+ *               - status
  *             properties:
- *               username:
- *                 type: string
- *               password:
- *                 type: string
- *               role:
- *                 type: string
- *                 description: Role of the user (worker/client/admin)
- *               firstName:
- *                 type: string
- *               middleName:
- *                 type: string
- *               familyName:
- *                 type: string
  *               email:
  *                 type: string
  *                 format: email
+ *                 example: "user@example.com"
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 minLength: 6
+ *                 example: "securePassword123"
+ *               username:
+ *                 type: string
+ *                 example: "johndoe"
+ *               role:
+ *                 type: string
+ *                 enum: [client, worker]
+ *                 example: "client"
+ *               firstName:
+ *                 type: string
+ *                 example: "John"
+ *               middleName:
+ *                 type: string
+ *                 example: "William"
+ *               familyName:
+ *                 type: string
+ *                 example: "Doe"
  *               phoneNumber:
  *                 type: string
+ *                 example: "+1234567890"
  *               gender:
  *                 type: string
+ *                 enum: [male, female, other]
+ *                 example: "male"
  *               age:
  *                 type: integer
+ *                 minimum: 18
+ *                 example: 25
  *               address:
  *                 type: string
+ *                 example: "123 Main St, City, Country"
  *               status:
  *                 type: string
- *           example:
- *             username: "johndoe"
- *             password: "password123"
- *             role: "client"
- *             firstName: "John"
- *             middleName: "William"
- *             familyName: "Doe"
- *             email: "john.doe@example.com"
- *             phoneNumber: "+1234567890"
- *             gender: "male"
- *             age: 30
- *             address: "123 Main St, City, Country"
- *             status: "active"
+ *                 enum: [active, inactive, pending]
+ *                 default: "pending"
+ *                 example: "pending"
  *     responses:
- *       200:
+ *       201:
  *         description: User registered successfully
  *         content:
  *           application/json:
@@ -73,22 +167,87 @@ const { authMiddleware } = require('../middleware/authMiddleware');
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "User registered successfully"
+ *                 token:
+ *                   type: string
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
  *                 user:
- *                   type: object
+ *                   $ref: '#/components/schemas/User'
  *       400:
- *         description: Missing required fields
+ *         description: Invalid input data, missing required fields, or email verification failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               oneOf:
+ *                 - type: object
+ *                   properties:
+ *                     success:
+ *                       type: boolean
+ *                       example: false
+ *                     message:
+ *                       type: string
+ *                       example: "Invalid email address. Please provide a valid email."
+ *                     details:
+ *                       type: object
+ *                       properties:
+ *                         status:
+ *                           type: string
+ *                           example: "undeliverable"
+ *                         isFormatValid:
+ *                           type: boolean
+ *                           example: true
+ *                         isSmtpValid:
+ *                           type: boolean
+ *                           example: false
+ *                         isMxValid:
+ *                           type: boolean
+ *                           example: true
+ *                 - type: object
+ *                   properties:
+ *                     success:
+ *                       type: boolean
+ *                       example: false
+ *                     message:
+ *                       type: string
+ *                       example: "Missing required fields"
+ *       409:
+ *         description: Email or username already exists
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Email already exists"
  *       500:
- *         description: Internal server error
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error"
  */
 router.post('/register', authController.register);
 
 /**
- * @openapi
+ * @swagger
  * /auth/login:
  *   post:
- *     summary: Login a user
- *     tags:
- *       - Auth
+ *     summary: Login user
+ *     tags: [Authentication]
  *     requestBody:
  *       required: true
  *       content:
@@ -96,19 +255,24 @@ router.post('/register', authController.register);
  *           schema:
  *             type: object
  *             required:
- *               - username
+ *               - email
  *               - password
+ *               - username
  *             properties:
- *               username:
+ *               email:
  *                 type: string
+ *                 format: email
+ *                 example: "user@example.com"
  *               password:
  *                 type: string
- *           example:
- *             username: "johndoe"
- *             password: "password123"
+ *                 format: password
+ *                 example: "securePassword123"
+ *               username:
+ *                 type: string
+ *                 example: "johndoe"
  *     responses:
  *       200:
- *         description: Login successful with JWT token
+ *         description: Login successful
  *         content:
  *           application/json:
  *             schema:
@@ -116,27 +280,75 @@ router.post('/register', authController.register);
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Login successful"
  *                 token:
  *                   type: string
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *       400:
+ *         description: Missing required fields
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Missing required fields"
  *       401:
  *         description: Invalid credentials
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid credentials"
  *       500:
- *         description: Internal server error
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error"
  */
 router.post('/login', authController.login);
 
 /**
- * @openapi
- * /auth/me:
+ * @swagger
+ * /auth/verify-email:
  *   get:
- *     summary: Get current logged-in user info
- *     tags:
- *       - Auth
- *     security:
- *       - bearerAuth: []
+ *     summary: Verify user email
+ *     description: Verifies a user's email address using the token sent to their email
+ *     tags: [Authentication]
+ *     parameters:
+ *       - in: query
+ *         name: token
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Verification token received via email
+ *         example: "a1b2c3d4e5f6..."
  *     responses:
  *       200:
- *         description: User information retrieved successfully
+ *         description: Email verified successfully
  *         content:
  *           application/json:
  *             schema:
@@ -144,15 +356,56 @@ router.post('/login', authController.login);
  *               properties:
  *                 success:
  *                   type: boolean
- *                 user:
- *                   type: object
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Email verified successfully"
+ *       400:
+ *         description: Invalid or expired token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid or expired verification token"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
+router.get('/verify-email', authController.verifyEmail);
+
+/**
+ * @swagger
+ * /auth/resend-verification:
+ *   post:
+ *     summary: Resend email verification
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Verification email sent
  *       401:
  *         description: Unauthorized
- *       404:
- *         description: User not found
  *       500:
- *         description: Internal server error
+ *         description: Server error
  */
-router.get('/me', authMiddleware, authController.me);
+router.post('/resend-verification', authMiddleware, authController.resendVerificationEmail);
+router.post('/refresh', authController.refreshToken);
 
 module.exports = router;

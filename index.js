@@ -1,23 +1,72 @@
+// index.js
 require('dotenv').config();
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
-const driver = require('./db/neo4j'); // Neo4j driver
 const swaggerUi = require('swagger-ui-express');
-const specs = require('./swagger'); // Swagger spec
+const cron = require('node-cron');
+const logger = require('./utils/logger');
+const morgan = require('morgan');
+const specs = require('./swagger');
+const config = require('./config');
+const { isFeatureEnabled } = require('./utils/featureToggle');
+const { initSocket } = require('./utils/socket');
+const scheduleJobs = require('./scheduler');
+const runMessageExpiryJob = require('./scheduler/messageExpiryJob');
 
+if (!process.env.JWT_SECRET) {
+  console.error('❌ FATAL: JWT_SECRET environment variable is not set');
+  process.exit(1);
+}
+
+// ✅ SET GLOBAL NEO4J CONFIG FIRST - BEFORE ANY ROUTES ARE REQUIRED
+const neo4jConfig = {
+  uri: config.database.neo4j.uri,
+  user: config.database.neo4j.user,
+  password: config.database.neo4j.password,
+  database: config.database.neo4j.database
+};
+
+console.log('Connecting to Neo4j with config:', {
+  ...neo4jConfig,
+  password: '***' // Hide password in logs
+});
+
+// Set global config BEFORE any models are loaded
+global.__neo4jConfig = neo4jConfig;
+
+// Initialize driver and set it globally
+const driver = require('./db/neo4j')(neo4jConfig);
+global.__neo4jDriver = driver;
+
+// ✅ NOW require routes AFTER Neo4j is configured
 const app = express();
-const PORT = process.env.PORT || 8000;
+const server = http.createServer(app);
+initSocket(server);
+app.use(morgan('combined', { stream: { write: msg => logger.info(msg.trim()) } }));
+const { authMiddleware } = require('./middleware/authMiddleware');
+const errorHandler = require('./middleware/errorHandler');
 
-// ===== Middleware =====
-app.use(cors());
-app.use(express.json());
+const PORT = config.server.port;
 
-// ===== Routes =====
+app.use(cors({
+  origin: config.server.corsOrigin || '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  credentials: true
+}));
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+app.use('/payments/webhook', express.raw({ type: 'application/json' }));
+
+// ✅ Routes are required AFTER Neo4j config is set
 app.use('/auth', require('./routes/authRoutes'));
+app.use('/admin', require('./routes/adminRoutes'));
 app.use('/users', require('./routes/userRoutes'));
 app.use('/clients', require('./routes/clientRoutes'));
 app.use('/workers', require('./routes/workerRoutes'));
 app.use('/jobs', require('./routes/jobRoutes'));
+app.use('/job-lifecycle', require('./routes/jobLifecycleRoutes'));
 app.use('/applications', require('./routes/applicationRoutes'));
 app.use('/assignments', require('./routes/assignmentRoutes'));
 app.use('/payments', require('./routes/paymentRoutes'));
@@ -34,64 +83,64 @@ app.use('/services', require('./routes/serviceRoutes'));
 app.use('/wallets', require('./routes/walletRoutes'));
 app.use('/attachments', require('./routes/attachmentRoutes'));
 app.use('/reports', require('./routes/reportRoutes'));
+app.use('/analytics', authMiddleware, require('./routes/analyticsRoutes'));
+app.use('/presence', require('./routes/presenceRoutes'));
+app.use('/meetings', require('./routes/meetingRoutes'));
+app.use('/intelligence', require('./routes/intelligenceRoutes'));
 
-// ===== Swagger Docs =====
-app.use(
-  '/docs',
-  swaggerUi.serve,
-  swaggerUi.setup(specs, {
-    explorer: true,
-    swaggerOptions: {
-      persistAuthorization: true,
-      displayRequestDuration: true,
-      filter: true,
-      showExtensions: true,
-      showCommonExtensions: true,
-      docExpansion: "none",
-      defaultModelsExpandDepth: 2,
-      defaultModelExpandDepth: 2,
-      requestInterceptor: (request) => {
-        if (request.headers && request.headers.Authorization) {
-          request.headers.Authorization = request.headers.Authorization;
-        }
-        return request;
-      }
-    },
-    customSiteTitle: 'Hinang API Docs',
-  })
-);
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(specs, {
+  explorer: true,
+  swaggerOptions: {
+    persistAuthorization: true,
+    displayRequestDuration: true,
+    filter: true,
+    docExpansion: 'none'
+  },
+  customSiteTitle: 'Hinang API Docs'
+}));
 
-// ===== Global Error Handler =====
-app.use((err, req, res, next) => {
-  console.error('Global error handler:', err);
-  res.status(500).json({ success: false, message: err.message || 'Internal server error' });
+app.get('/', (_req, res) => res.json({
+  success: true,
+  message: 'API is running 🚀',
+  environment: config.server.env,
+  version: '1.0.0'
+}));
+
+app.use(errorHandler);
+
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: 'Endpoint not found',
+    path: req.path
+  });
 });
 
-// ===== Health Check =====
-app.get('/', (req, res) => {
-  res.json({ success: true, message: 'API is running 🚀' });
-});
+scheduleJobs(cron, require('./config/features.json'));
 
-// ===== 404 Handler =====
-app.use((req, res, next) => {
-  res.status(404).json({ success: false, message: 'Endpoint not found' });
-});
+if (isFeatureEnabled('messageRetentionEnabled')) {
+  cron.schedule('0 * * * *', async () => {
+    console.log('[cron] Purging expired messages...');
+    await runMessageExpiryJob();
+  });
+}
 
-// ===== Start Server =====
 (async () => {
   try {
-    // Test Neo4j Aura connection before starting server
     const session = driver.session();
     await session.run('RETURN 1');
     await session.close();
-    console.log('✅ Connected to Neo4j Aura Cloud');
+    console.log('✅ Connected to Neo4j database');
 
-    app.listen(PORT, () => {
-      console.log(`\n🚀 Server running at: http://localhost:${PORT}`);
-      console.log(`📖 Swagger UI available at: http://localhost:${PORT}/docs\n`);
+    server.listen(PORT, config.server.host, () => {
+      console.log(`
+🚀 Server running at: http://${config.server.host}:${PORT}
+📦 Environment: ${config.server.env}
+📖 Swagger: http://${config.server.host}:${PORT}/docs
+`);
     });
   } catch (err) {
-    console.error('❌ Failed to connect to Neo4j Aura:', err.message);
+    console.error('❌ Failed to start server:', err.message);
     process.exit(1);
   }
 })();

@@ -1,33 +1,20 @@
-const fs = require('fs');
+// models/notificationModel.js
 const path = require('path');
 const driver = require('../db/neo4j');
+const loadQueries = require('../utils/cypherLoader');
+const { retry } = require('../utils/retryUtils');
 
-const loadQueries = () => {
-  const queryDir = path.join(__dirname, '../queries/notification');
-  const queryFiles = fs.readdirSync(queryDir);
-  const queries = {};
-
-  queryFiles.forEach(file => {
-    const queryName = path.basename(file, '.cypher');
-    queries[queryName] = fs.readFileSync(path.join(queryDir, file), 'utf8');
-  });
-
-  return queries;
-};
+const queries = loadQueries(path.join(__dirname, '../queries/notification'));
 
 const executeQuery = async (queryName, params = {}) => {
   const session = driver.session();
   try {
-    const queries = loadQueries();
     const query = queries[queryName];
-    if (!query) throw new Error(`Query ${queryName} not found`);
-
-    const result = await session.run(query, params);
+    if (!query) throw new Error(`Query "${queryName}" not found`);
+    const result = await retry(async () => await session.run(query, params));
     return result.records.map(record => {
       const obj = {};
-      record.keys.forEach(key => {
-        obj[key] = record.get(key);
-      });
+      record.keys.forEach(key => obj[key] = record.get(key));
       return obj;
     });
   } finally {
@@ -36,24 +23,26 @@ const executeQuery = async (queryName, params = {}) => {
 };
 
 const notificationModel = {
-  createNotification: async (userId, message, type) => {
-    const records = await executeQuery('createNotification', { userId, message, type });
-    return records[0]?.n || null;
+  createNotification: async ({ userId, type, message, link, status = 'unread', timestamp = new Date().toISOString() }) => {
+    if (!userId || !type || !message) throw new Error('userId, type, and message are required');
+    const records = await executeQuery('createNotification', { userId, type, message, link, status, timestamp });
+    return records[0]?.n?.properties || null;
   },
 
   getNotificationsByUserId: async (userId) => {
     const records = await executeQuery('getNotificationsByUserId', { userId });
-    return records.map(record => record.n);
+    return records.map(r => r.n?.properties).filter(Boolean);
   },
 
-  markNotificationRead: async (id) => {
-    const records = await executeQuery('markNotificationRead', { id });
-    return records[0]?.n || null;
+  updateNotificationStatus: async (id, status) => {
+    if (!['unread', 'read', 'deleted'].includes(status)) throw new Error('Invalid status');
+    const records = await executeQuery('updateNotificationStatus', { id, status });
+    return records[0]?.n?.properties || null;
   },
 
   deleteNotificationById: async (id) => {
     const records = await executeQuery('deleteNotificationById', { id });
-    return records[0]?.deletedNotification || null;
+    return records[0]?.deletedNotification?.properties || null;
   }
 };
 

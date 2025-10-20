@@ -1,78 +1,50 @@
-const fs = require('fs');
+// models/mapModel.js
 const path = require('path');
 const driver = require('../db/neo4j');
+const loadQueries = require('../utils/cypherLoader');
+const { retry } = require('../utils/retryUtils');
 
-// Load queries from /queries/map
-const loadQueries = () => {
-  const queryDir = path.join(__dirname, '../queries/map');
-  const queryFiles = fs.readdirSync(queryDir);
-  const queries = {};
+const queries = loadQueries(path.join(__dirname, '../queries/map'));
 
-  queryFiles.forEach(file => {
-    const queryName = path.basename(file, '.cypher');
-    queries[queryName] = fs.readFileSync(path.join(queryDir, file), 'utf8');
-  });
-
-  return queries;
-};
-
-// Query executor
 const executeQuery = async (queryName, params = {}) => {
   const session = driver.session();
   try {
-    const queries = loadQueries();
     const query = queries[queryName];
-
-    if (!query) throw new Error(`Query ${queryName} not found`);
-
-    const result = await session.run(query, params);
+    if (!query) throw new Error(`Query "${queryName}" not found`);
+    const result = await retry(async () => await session.run(query, params));
     return result.records.map(record => {
-      const recordObj = {};
-      record.keys.forEach(key => {
-        recordObj[key] = record.get(key);
-      });
-      return recordObj;
+      const obj = {};
+      record.keys.forEach(key => obj[key] = record.get(key));
+      return obj;
     });
-  } catch (error) {
-    console.error(`Error executing ${queryName}:`, error);
-    throw error;
   } finally {
     await session.close();
   }
 };
 
 const mapModel = {
-  // Add a location to a job
   addJobLocation: async (jobId, latitude, longitude, address) => {
+    if (!jobId || typeof latitude !== 'number' || typeof longitude !== 'number') {
+      throw new Error('Invalid location data');
+    }
     const records = await executeQuery('addJobLocation', { jobId, latitude, longitude, address });
-    return records[0] || null;
+    return records[0]?.loc?.properties || null;
   },
 
-  // Get all job locations
-  getJobLocations: async () => {
-    const records = await executeQuery('getJobLocations');
-    return records.map(record => ({ job: record.job, location: record.loc }));
-  },
-
-  // Get location for a specific job
   getJobLocationById: async (jobId) => {
     const records = await executeQuery('getJobLocationById', { jobId });
-    return records[0] || null;
+    return records[0]?.loc?.properties || null;
   },
 
-  // Delete job location
-  deleteJobLocation: async (jobId) => {
-    const records = await executeQuery('deleteJobLocation', { jobId });
-    return records[0]?.job || null;
-  },
-
-  // Get jobs near a point (requires Neo4j Spatial/ APOC)
-  getJobsNearLocation: async (latitude, longitude, radius) => {
+  getJobsNearLocation: async (latitude, longitude, radius = 5) => {
+    if (typeof latitude !== 'number' || typeof longitude !== 'number' || radius <= 0) {
+      throw new Error('Invalid geolocation parameters');
+    }
     const records = await executeQuery('getJobsNearLocation', { latitude, longitude, radius });
-    return records.map(record => ({
-      job: record.job,
-      location: record.loc,
-      distance: record.dist
+    return records.map(r => ({
+      job: r.job?.properties || null,
+      location: r.loc?.properties || null,
+      distance: r.dist
     }));
   }
 };

@@ -1,2 +1,2 @@
-MATCH (worker:Worker {id: $workerId})<-[:ASSIGNED_TO]-(job:Job)
-RETURN job, worker
+MATCH (w:Worker {id: $workerId})-[:ASSIGNED_TO]->(j:Job)
+RETURN collect(j) as jobs

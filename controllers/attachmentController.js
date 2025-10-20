@@ -36,23 +36,26 @@ const uploadAttachment = async (req, res) => {
 };
 
 // Delete an attachment
+// controllers/attachmentController.js (excerpt)
 const deleteAttachment = async (req, res) => {
-    try {
-        const { attachmentId } = req.params;
+  try {
+    const { attachmentId } = req.params;
 
-        // Here you might want to check ownership before deletion
-        // This would require additional query to check if the user owns the attachment
-
-        const deleted = await AttachmentModel.deleteAttachment(attachmentId);
-        if (deleted) {
-            res.json({ message: 'Attachment deleted successfully' });
-        } else {
-            res.status(404).json({ message: 'Attachment not found' });
-        }
-    } catch (error) {
-        console.error('Error deleting attachment:', error);
-        res.status(500).json({ message: 'Error deleting attachment' });
+    const attachment = await AttachmentModel.getAttachmentById(attachmentId);
+    if (!attachment) {
+      return res.status(404).json({ message: 'Attachment not found' });
     }
+
+    if (req.user.role !== 'admin' && attachment.ownerId !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to delete this attachment' });
+    }
+
+    await AttachmentModel.deleteAttachment(attachmentId);
+    res.json({ message: 'Attachment deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting attachment:', error);
+    res.status(500).json({ message: 'Error deleting attachment' });
+  }
 };
 
 module.exports = {

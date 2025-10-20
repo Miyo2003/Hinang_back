@@ -1,68 +1,76 @@
-const fs = require('fs');
+// models/assignmentModel.js
 const path = require('path');
 const driver = require('../db/neo4j');
+const loadQueries = require('../utils/cypherLoader');
 
-const loadQueries = () => {
-  const queryDir = path.join(__dirname, '../queries/assignment');
-  const queryFiles = fs.readdirSync(queryDir);
-  const queries = {};
-  queryFiles.forEach(file => {
-    const queryName = path.basename(file, '.cypher');
-    queries[queryName] = fs.readFileSync(path.join(queryDir, file), 'utf8');
-  });
-  return queries;
-};
+const queries = loadQueries(path.join(__dirname, '../queries/assignment'));
 
-const executeQuery = async (queryName, params = {}) => {
+const runQuery = async (name, params = {}) => {
   const session = driver.session();
   try {
-    const queries = loadQueries();
-    const query = queries[queryName];
+    const query = queries[name];
+    if (!query) throw new Error(`[assignmentModel] Query "${name}" missing`);
     const result = await session.run(query, params);
-    return result.records.map(record => {
-      const obj = {};
-      record.keys.forEach(key => obj[key] = record.get(key));
-      return obj;
-    });
-  } finally { await session.close(); }
+    return result.records;
+  } finally {
+    await session.close();
+  }
 };
 
 const assignmentModel = {
   assignWorkerToJob: async (workerId, jobId) => {
-    if (!workerId || !jobId) {
-      throw new Error('Worker ID and Job ID are required');
-    }
-    const records = await executeQuery('assignWorkerToJob', { workerId, jobId });
+    const records = await runQuery('assignWorkerToJob', { workerId, jobId });
     return records[0] || null;
   },
 
   getWorkersForJob: async (jobId) => {
-    if (!jobId) {
-      throw new Error('Job ID is required');
-    }
-    const records = await executeQuery('getWorkersForJob', { jobId });
-    return records.map(r => r.worker);
+    const records = await runQuery('getWorkersForJob', { jobId });
+    return records.map(r => r.worker?.properties).filter(Boolean);
   },
 
   getJobsForWorker: async (workerId) => {
-    if (!workerId) {
-      throw new Error('Worker ID is required');
-    }
-    // First check if worker exists
-    const workerExists = await executeQuery('checkWorkerExists', { workerId });
+    const workerExists = await runQuery('checkWorkerExists', { workerId });
     if (!workerExists || workerExists.length === 0) {
       throw new Error(`Worker with ID ${workerId} not found`);
     }
-    const records = await executeQuery('getJobsForWorker', { workerId });
-    return records.map(r => r.job);
+    const records = await runQuery('getJobsForWorker', { workerId });
+    return records[0]?.get('jobs')?.map(j => j.properties) || [];
   },
 
   deleteAssignment: async (workerId, jobId) => {
-    if (!workerId || !jobId) {
-      throw new Error('Worker ID and Job ID are required');
-    }
-    const records = await executeQuery('deleteAssignment', { workerId, jobId });
+    const records = await runQuery('deleteAssignment', { workerId, jobId });
     return records[0]?.result || null;
+  },
+
+  createInvite: async (payload) => {
+    const records = await runQuery('createInvite', payload);
+    return records[0]?.get('invite')?.properties || null;
+  },
+
+  respondToInvite: async ({ jobId, inviteId, workerId, response, respondedAt }) => {
+    const records = await runQuery('respondToInvite', { jobId, inviteId, workerId, response, respondedAt });
+    if (records.length === 0) return null;
+    const record = records[0];
+    return {
+      invite: record.get('invite')?.properties || null,
+      assignment: record.get('assignment')?.properties || null,
+      clientId: record.get('client')?.properties.id || null
+    };
+  },
+
+  listInvitesForJob: async (jobId) => {
+    const records = await runQuery('listInvitesForJob', { jobId });
+    return records.map(r => r.get('invite')?.properties).filter(Boolean);
+  },
+
+  revokeInvite: async ({ jobId, inviteId, revokedBy, revokedAt }) => {
+    const records = await runQuery('revokeInvite', { jobId, inviteId, revokedBy, revokedAt });
+    if (!records.length) return null;
+    const record = records[0];
+    return {
+      invite: record.get('invite')?.properties || null,
+      workerId: record.get('worker')?.properties.id || null
+    };
   }
 };
 
