@@ -1,44 +1,44 @@
 const axios = require('axios');
 
-const ABSTRACT_API_KEY = process.env.ABSTRACT_API_KEY; // Add this to your .env file
-const API_URL = 'https://emailreputation.abstractapi.com/v1';
+const ZEROBOUNCE_API_KEY = process.env.ZEROBOUNCE_API_KEY; // Add this to your .env file
+const API_URL = 'https://api.zerobounce.net/v2/validate';
 
 class EmailVerificationService {
     async verifyEmail(email) {
         try {
             const response = await axios.get(API_URL, {
                 params: {
-                    api_key: ABSTRACT_API_KEY,
+                    api_key: ZEROBOUNCE_API_KEY,
                     email: email
                 }
             });
 
             const data = response.data;
 
-            // Create a comprehensive verification result
+            // Create a comprehensive verification result based on ZeroBounce response
             return {
-                isValid: data.email_deliverability.status === 'deliverable',
+                isValid: data.status === 'valid',
                 details: {
                     deliverability: {
-                        status: data.email_deliverability.status,
-                        isFormatValid: data.email_deliverability.is_format_valid,
-                        isSmtpValid: data.email_deliverability.is_smtp_valid,
-                        isMxValid: data.email_deliverability.is_mx_valid
+                        status: data.status, // valid, invalid, catch-all, unknown, spamtrap, abuse, do_not_mail
+                        isFormatValid: data.status !== 'invalid',
+                        isSmtpValid: data.status === 'valid',
+                        isMxValid: data.mx_found === 'true'
                     },
                     quality: {
-                        score: parseFloat(data.email_quality.score),
-                        isFreeEmail: data.email_quality.is_free_email,
-                        isDisposable: data.email_quality.is_disposable,
-                        isCatchall: data.email_quality.is_catchall,
-                        isDmarcEnforced: data.email_quality.is_dmarc_enforced
+                        score: this._calculateQualityScore(data),
+                        isFreeEmail: data.free_email === 'true',
+                        isDisposable: data.disposable === 'true',
+                        isCatchall: data.status === 'catch-all',
+                        isDmarcEnforced: data.dmarc === 'pass'
                     },
                     risk: {
-                        addressStatus: data.email_risk.address_risk_status,
-                        domainStatus: data.email_risk.domain_risk_status
+                        addressStatus: this._mapRiskStatus(data.status),
+                        domainStatus: this._mapRiskStatus(data.status)
                     },
                     breaches: {
-                        total: data.email_breaches.total_breaches,
-                        lastBreached: data.email_breaches.date_last_breached
+                        total: 0, // ZeroBounce doesn't provide breach data
+                        lastBreached: null
                     }
                 },
                 rawResponse: data
@@ -49,15 +49,43 @@ class EmailVerificationService {
         }
     }
 
+    _calculateQualityScore(data) {
+        // Calculate a quality score based on ZeroBounce data
+        let score = 0;
+        if (data.status === 'valid') score += 0.8;
+        if (data.mx_found === 'true') score += 0.1;
+        if (data.smtp_provider) score += 0.1;
+        if (data.dmarc === 'pass') score += 0.1;
+        if (data.free_email === 'false') score += 0.1;
+        if (data.disposable === 'false') score += 0.1;
+        return Math.min(score, 1.0);
+    }
+
+    _mapRiskStatus(status) {
+        switch (status) {
+            case 'valid':
+                return 'low';
+            case 'invalid':
+            case 'spamtrap':
+            case 'abuse':
+            case 'do_not_mail':
+                return 'high';
+            case 'catch-all':
+            case 'unknown':
+            default:
+                return 'medium';
+        }
+    }
+
     isEmailSafe(verificationResult) {
-        // Define safety criteria
+        // Define safety criteria based on ZeroBounce data
         const safetyChecks = {
             isDeliverable: verificationResult.isValid,
             hasGoodQuality: verificationResult.details.quality.score >= 0.7,
             isNotDisposable: !verificationResult.details.quality.isDisposable,
-            hasLowRisk: verificationResult.details.risk.addressStatus === 'low' && 
+            hasLowRisk: verificationResult.details.risk.addressStatus === 'low' &&
                        verificationResult.details.risk.domainStatus === 'low',
-            noBreaches: verificationResult.details.breaches.total === 0
+            noBreaches: true // ZeroBounce doesn't check breaches, assume safe
         };
 
         // Email must pass all safety checks
