@@ -1,5 +1,5 @@
 const userModel = require('../models/userModel');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 
 const userController = {
   // Get all users (admin only)
