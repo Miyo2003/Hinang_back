@@ -9,9 +9,9 @@ const options = {
       version: '1.0.0',
       description: 'API documentation for Hinang',
     },
-    servers: [
-      { url: 'http://localhost:3000', description: 'locla host' }
-    ],
+servers: [
+  { url: 'https://hinang-back.onrender.com', description: 'Production server' }
+],
     components: {
       securitySchemes: {
         bearerAuth: {
