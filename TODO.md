@@ -1,3 +1,5 @@
+>>>>>>> cf9632c3f2b3ef66c79f5f4ac011cd5548d6df14
+=======
 # TODO: Implement Geolocation Backend
 
 ## Tasks
@@ -17,3 +19,5 @@
 - [x] Create countChatsForUser.cypher query
 - [x] Update chatController.js to use pagination and count
 - [x] Test the pagination functionality
+=======
+>>>>>>> cf9632c3f2b3ef66c79f5f4ac011cd5548d6df14
