@@ -1,7 +1,7 @@
 module.exports = {
   server: {
     port: process.env.PORT || 3000,
-    host: process.env.HOST || 'localhost',
+    host: process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost'),
     env: process.env.NODE_ENV || 'development',
     corsOrigin: process.env.CORS_ORIGIN || '*'
   },
