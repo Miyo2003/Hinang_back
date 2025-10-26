@@ -1,4 +1,3 @@
-const neo4j = require('../db/neo4j');
 const fs = require('fs').promises;
 const path = require('path');
 const { retry } = require('../utils/retryUtils');
@@ -9,7 +8,7 @@ class ProfileModel {
         this.updateProfileQuery = fs.readFile(path.join(__dirname, '../queries/profile/updateProfile.cypher'), 'utf8');
     }
     async getProfile(userId) {
-        const session = neo4j.session();
+        const session = global.__neo4jDriver.session();
         try {
             const query = await this.getProfileQuery;
             const result = await retry(async () => await session.run(query, { userId }));
@@ -31,10 +30,10 @@ class ProfileModel {
     }
 
     async updateProfile(userId, profileData) {
-        const session = neo4j.session();
+        const session = global.__neo4jDriver.session();
         try {
             const query = await this.updateProfileQuery;
-            const result = await retry(async () => await session.run(query, { 
+            const result = await retry(async () => await session.run(query, {
                 userId,
                 profileData: {
                     ...profileData,

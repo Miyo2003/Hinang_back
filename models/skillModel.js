@@ -1,13 +1,12 @@
 // models/skillModel.js
 const path = require('path');
-const driver = require('../db/neo4j');
 const loadQueries = require('../utils/cypherLoader');
 const { retry } = require('../utils/retryUtils');
 
 const queries = loadQueries(path.join(__dirname, '../queries/skill'));
 
 const executeQuery = async (queryName, params = {}) => {
-  const session = driver.session();
+  const session = global.__neo4jDriver.session();
   try {
     const query = queries[queryName];
     if (!query) {

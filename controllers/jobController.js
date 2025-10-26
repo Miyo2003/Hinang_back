@@ -1,4 +1,5 @@
 const jobModel = require('../models/jobModel');
+const notificationAPIService = require('../services/notificationAPIService');
 
 const jobController = {
   // Create a new job (client only)
@@ -34,6 +35,12 @@ const jobController = {
       };
 
       const job = await jobModel.createJob(jobData);
+
+      // Notify workers about new job (you might want to get worker emails from a query)
+      // For now, this is a placeholder - you'll need to implement logic to get relevant worker emails
+      // const workerEmails = await getRelevantWorkerEmails(job); // Implement this function
+      // await notificationAPIService.notifyNewJob(job, workerEmails);
+
       res.status(201).json({
         success: true,
         message: 'Job created successfully',

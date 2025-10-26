@@ -5,14 +5,14 @@ const { authMiddleware } = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 
 /**
- * @swagger
+ * @openapi
  * tags:
  *   name: Skills
  *   description: Skills management and user skill associations
  */
 
 /**
- * @swagger
+ * @openapi
  * components:
  *   schemas:
  *     Skill:
@@ -42,7 +42,7 @@ const roleMiddleware = require('../middleware/roleMiddleware');
  */
 
 /**
- * @swagger
+ * @openapi
  * /skills:
  *   post:
  *     summary: Create a new skill (worker/admin only)
@@ -92,7 +92,7 @@ const roleMiddleware = require('../middleware/roleMiddleware');
 router.post('/', authMiddleware, roleMiddleware(['worker', 'admin']), skillController.create);
 
 /**
- * @swagger
+ * @openapi
  * /skills:
  *   get:
  *     summary: Get all skills
@@ -160,7 +160,7 @@ router.post('/', authMiddleware, roleMiddleware(['worker', 'admin']), skillContr
 router.get('/', authMiddleware, skillController.getAll);
 
 /**
- * @swagger
+ * @openapi
  * /skills/user/{userId}:
  *   get:
  *     summary: Get skills of a specific user
@@ -209,7 +209,7 @@ router.get('/', authMiddleware, skillController.getAll);
 router.get('/user/:userId', authMiddleware, skillController.getByUser);
 
 /**
- * @swagger
+ * @openapi
  * /skills/{id}:
  *   put:
  *     summary: Update a skill (worker/admin only)
@@ -264,7 +264,7 @@ router.get('/user/:userId', authMiddleware, skillController.getByUser);
 router.put('/:id', authMiddleware, roleMiddleware(['worker', 'admin']), skillController.update);
 
 /**
- * @swagger
+ * @openapi
  * /skills/{id}:
  *   delete:
  *     summary: Delete a skill (worker/admin only)

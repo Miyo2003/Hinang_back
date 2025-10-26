@@ -141,8 +141,8 @@ router.post('/', authMiddleware, serviceController.createService);
  *                         type: string
  *                         description: Service ID
  *                       title:
- *                         type: string
- *                         description: Service title
+ *                           type: string
+ *                           description: Service title
  *                       description:
  *                         type: string
  *                         description: Service description

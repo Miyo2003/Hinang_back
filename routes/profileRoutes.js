@@ -4,7 +4,7 @@ const { getProfile, updateProfile } = require('../controllers/profileController'
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 /**
- * @swagger
+ * @openapi
  * /api/profile/me:
  *   get:
  *     summary: Get own profile
@@ -22,7 +22,7 @@ const { authMiddleware } = require('../middleware/authMiddleware');
  *                 user:
  *                   type: object
  *                   properties:
- *                     id: 
+ *                     id:
  *                       type: string
  *                     email:
  *                       type: string
@@ -58,7 +58,7 @@ const { authMiddleware } = require('../middleware/authMiddleware');
 router.get('/me', authMiddleware, getProfile);
 
 /**
- * @swagger
+ * @openapi
  * /profile/{userId}:
  *   get:
  *     summary: Get another user's profile
@@ -83,7 +83,7 @@ router.get('/me', authMiddleware, getProfile);
  *                 user:
  *                   type: object
  *                   properties:
- *                     id: 
+ *                     id:
  *                       type: string
  *                     email:
  *                       type: string
@@ -106,7 +106,7 @@ router.get('/me', authMiddleware, getProfile);
 router.get('/:userId', authMiddleware, getProfile);
 
 /**
- * @swagger
+ * @openapi
  * /api/profile/me:
  *   put:
  *     summary: Update own profile

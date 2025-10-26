@@ -1,5 +1,8 @@
 // controllers/assignmentController.js
 const assignmentModel = require('../models/assignmentModel');
+const jobModel = require('../models/jobModel');
+const userModel = require('../models/userModel');
+const notificationAPIService = require('../services/notificationAPIService');
 const { assertFeatureEnabled } = require('../utils/featureToggle');
 const { queueNotification } = require('../services/notificationDispatcher');
 
@@ -22,6 +25,15 @@ const assignmentController = {
       }
 
       const assignment = await assignmentModel.assignWorkerToJob(workerId, jobId);
+
+      // Notify worker and client about assignment
+      const job = await jobModel.getJobById(jobId);
+      const worker = await userModel.getUserById(workerId);
+      const client = await userModel.getUserById(req.user.id);
+
+      await notificationAPIService.notifyAssignment(job, worker.email, client.username || client.email);
+      await notificationAPIService.notifyClientAssignment(job, client.email, worker.username || worker.email);
+
       res.json({ success: true, assignment });
     } catch (err) {
       console.error('Error in assignWorker:', err);

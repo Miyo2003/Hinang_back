@@ -4,14 +4,14 @@ const chatController = require('../controllers/chatController');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const paginationMiddleware = require('../middleware/paginationMiddleware');
 /**
- * @swagger
+ * @openapi
  * tags:
  *   name: Chats
  *   description: Chat management and messaging
  */
 
 /**
- * @swagger
+ * @openapi
  * components:
  *   schemas:
  *     Chat:
@@ -43,7 +43,7 @@ const paginationMiddleware = require('../middleware/paginationMiddleware');
  */
 
 /**
- * @swagger
+ * @openapi
  * /chats:
  *   post:
  *     summary: Create a chat with an initial message
@@ -88,7 +88,7 @@ const paginationMiddleware = require('../middleware/paginationMiddleware');
 router.post('/', authMiddleware, chatController.createChat);
 
 /**
- * @swagger
+ * @openapi
  * /chats/my:
  *   get:
  *     summary: Get all chats for logged-in user

@@ -5,14 +5,14 @@ const { authMiddleware } = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 
 /**
- * @swagger
+ * @openapi
  * tags:
  *   name: Users
  *   description: User management
  */
 
 /**
- * @swagger
+ * @openapi
  * components:
  *   schemas:
  *     User:
@@ -80,7 +80,7 @@ const roleMiddleware = require('../middleware/roleMiddleware');
  */
 
 /**
- * @swagger
+ * @openapi
  * /users:
  *   get:
  *     summary: Get all users (admin only)
@@ -133,7 +133,7 @@ const roleMiddleware = require('../middleware/roleMiddleware');
 router.get('/', authMiddleware, roleMiddleware(['admin']), userController.getAll);
 
 /**
- * @swagger
+ * @openapi
  * /users/me:
  *   get:
  *     summary: Get current logged-in user
@@ -175,7 +175,7 @@ router.get('/', authMiddleware, roleMiddleware(['admin']), userController.getAll
 router.get('/me', authMiddleware, userController.getMe);
 
 /**
- * @swagger
+ * @openapi
  * /users/{id}:
  *   get:
  *     summary: Get user by ID (admin or self)
@@ -242,7 +242,7 @@ router.get('/me', authMiddleware, userController.getMe);
 router.get('/:id', authMiddleware, roleMiddleware(['admin']), userController.getById);
 
 /**
- * @swagger
+ * @openapi
  * /users/{id}:
  *   put:
  *     summary: Update user (admin or self)
@@ -350,7 +350,7 @@ router.get('/:id', authMiddleware, roleMiddleware(['admin']), userController.get
 router.put('/:id', authMiddleware, roleMiddleware(['admin']), userController.update);
 
 /**
- * @swagger
+ * @openapi
  * /users/{id}:
  *   delete:
  *     summary: Delete user (admin or self)

@@ -6,14 +6,14 @@ const roleMiddleware = require('../middleware/roleMiddleware');
 const validationMiddleware = require('../middleware/validationMiddleware');
 const featureMiddleware = require('../middleware/featureMiddleware');
 /**
- * @swagger
+ * @openapi
  * tags:
  *   name: Payments
  *   description: Payment processing and escrow management
  */
 
 /**
- * @swagger
+ * @openapi
  * components:
  *   schemas:
  *     Payment:
@@ -62,7 +62,7 @@ const featureMiddleware = require('../middleware/featureMiddleware');
  */
 
 /**
- * @swagger
+ * @openapi
  * /api/payments:
  *   post:
  *     summary: Create a new payment
@@ -83,15 +83,15 @@ const featureMiddleware = require('../middleware/featureMiddleware');
  *       401:
  *         description: Unauthorized
  */
-router.post('/', 
-  authMiddleware, 
-  roleMiddleware(['client', 'admin']), 
+router.post('/',
+  authMiddleware,
+  roleMiddleware(['client', 'admin']),
   validationMiddleware.validate(validationMiddleware.paymentSchema),
   paymentController.create
 );
 
 /**
- * @swagger
+ * @openapi
  * /api/payments/job/{jobId}:
  *   get:
  *     summary: Get payments for a specific job
@@ -108,14 +108,14 @@ router.post('/',
  *       200:
  *         description: List of payments for the job
  */
-router.get('/job/:jobId', 
+router.get('/job/:jobId',
   authMiddleware,
   validationMiddleware.validate(validationMiddleware.jobIdSchema),
   paymentController.getByJob
 );
 
 /**
- * @swagger
+ * @openapi
  * /api/payments/user/{userId}:
  *   get:
  *     summary: Get payments for a specific user
@@ -132,14 +132,14 @@ router.get('/job/:jobId',
  *       200:
  *         description: List of user's payments
  */
-router.get('/user/:userId', 
+router.get('/user/:userId',
   authMiddleware,
   validationMiddleware.validate(validationMiddleware.userIdSchema),
   paymentController.getByUser
 );
 
 /**
- * @swagger
+ * @openapi
  * /api/payments/{id}/status:
  *   put:
  *     summary: Update payment status
@@ -168,15 +168,15 @@ router.get('/user/:userId',
  *       200:
  *         description: Payment status updated
  */
-router.put('/:id/status', 
-  authMiddleware, 
-  roleMiddleware(['client', 'admin']), 
+router.put('/:id/status',
+  authMiddleware,
+  roleMiddleware(['client', 'admin']),
   validationMiddleware.validate(validationMiddleware.paymentStatusSchema),
   paymentController.updateStatus
 );
 
 /**
- * @swagger
+ * @openapi
  * /api/payments/escrow:
  *   post:
  *     summary: Create an escrow payment
@@ -197,16 +197,16 @@ router.put('/:id/status',
  *       201:
  *         description: Escrow payment created
  */
-router.post('/escrow', 
-  authMiddleware, 
-  roleMiddleware(['client', 'admin']), 
+router.post('/escrow',
+  authMiddleware,
+  roleMiddleware(['client', 'admin']),
   featureMiddleware('escrowEnabled'),
   validationMiddleware.validate(validationMiddleware.escrowPaymentSchema),
   paymentController.createEscrowPayment
 );
 
 /**
- * @swagger
+ * @openapi
  * /api/payments/escrow/{jobId}/release:
  *   post:
  *     summary: Release escrow payment
@@ -223,16 +223,16 @@ router.post('/escrow',
  *       200:
  *         description: Escrow payment released
  */
-router.post('/escrow/:jobId/release', 
-  authMiddleware, 
-  roleMiddleware(['client', 'admin']), 
+router.post('/escrow/:jobId/release',
+  authMiddleware,
+  roleMiddleware(['client', 'admin']),
   featureMiddleware('escrowEnabled'),
   validationMiddleware.validate(validationMiddleware.jobIdSchema),
   paymentController.releaseEscrow
 );
 
 /**
- * @swagger
+ * @openapi
  * /api/payments/escrow/{jobId}/refund:
  *   post:
  *     summary: Refund escrow payment (admin only)
@@ -249,9 +249,9 @@ router.post('/escrow/:jobId/release',
  *       200:
  *         description: Escrow payment refunded
  */
-router.post('/escrow/:jobId/refund', 
-  authMiddleware, 
-  roleMiddleware(['admin']), 
+router.post('/escrow/:jobId/refund',
+  authMiddleware,
+  roleMiddleware(['admin']),
   featureMiddleware('escrowEnabled'),
   validationMiddleware.validate(validationMiddleware.jobIdSchema),
   paymentController.refundEscrow
@@ -259,7 +259,7 @@ router.post('/escrow/:jobId/refund',
 
 // Webhook endpoints — raw body already parsed in index.js
 /**
- * @swagger
+ * @openapi
  * /api/payments/webhook/mongopay:
  *   post:
  *     summary: Handle Mongopay webhook events
@@ -277,7 +277,7 @@ router.post('/escrow/:jobId/refund',
 router.post('/webhook/mongopay', paymentController.handleMongopayWebhook);
 
 /**
- * @swagger
+ * @openapi
  * /api/payments/webhook/stripe:
  *   post:
  *     summary: Handle Stripe webhook events

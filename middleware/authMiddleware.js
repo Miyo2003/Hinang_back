@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 
 const authMiddleware = (req, res, next) => {
   const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) {
+  if (!header || !header.startsWith('Bearer ')) {
     return res.status(401).json({ success: false, message: 'Authorization header missing or malformed' });
   }
 
@@ -24,4 +24,5 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-module.exports = { authMiddleware };
+// Export both original name and an alias `authenticate` because some routes import { authenticate }
+module.exports = { authMiddleware, authenticate: authMiddleware };

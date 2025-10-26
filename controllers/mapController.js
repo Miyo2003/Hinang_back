@@ -76,9 +76,41 @@ const verifyLocation = async (req, res) => {
   }
 };
 
+const updateUserLocation = async (req, res) => {
+  try {
+    const userId = req.user.id; // Assuming authMiddleware sets req.user
+    const { latitude, longitude, address, city, country, postalCode } = req.body;
+
+    if (latitude == null || longitude == null) {
+      return res.status(400).json({ success: false, message: 'Latitude and longitude are required' });
+    }
+
+    const location = await mapModel.updateUserLocation(userId, Number(latitude), Number(longitude), address, city, country, postalCode);
+    res.status(200).json({ success: true, location });
+  } catch (err) {
+    console.error('Error updating user location:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+const getNearbyUsers = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { radius } = req.query; // radius in meters
+
+    const nearbyUsers = await mapModel.getNearbyUsers(userId, Number(radius) || 5000);
+    res.json({ success: true, nearbyUsers });
+  } catch (err) {
+    console.error('Error getting nearby users:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 module.exports = {
   addJobLocation,
   getJobLocation,
   getJobsNearLocation,
-  verifyLocation
+  verifyLocation,
+  updateUserLocation,
+  getNearbyUsers
 };
