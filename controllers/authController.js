@@ -165,28 +165,44 @@ const register = async (req, res) => {
     const requiresVerification = isFeatureEnabled('emailVerificationEnabled');
 
     console.log('[authController] Feature check - emailVerificationEnabled:', isFeatureEnabled('emailVerificationEnabled'));
-    
+    console.log('[authController] User role:', role);
+
     let verificationLink = null;
+    let verificationCode = null;
+
     if (requiresVerification) {
       try {
-        console.log('[authController] Creating email verification token for user:', user.id);
-        const token = await verificationService.createEmailToken(user.id);
-        console.log('[authController] Token created:', token);
-        
-        console.log('[authController] Attempting to send verification email to:', user.email);
-        const sendResult = await emailService.sendVerificationEmail({
-          to: user.email,
-          name: user.firstName || user.lastName || '',
-          token
-        });
+        if (role === 'admin') {
+          console.log('[authController] Creating email verification code for admin user:', user.id);
+          verificationCode = await verificationService.createEmailCode(user.id);
+          console.log('[authController] Code created:', verificationCode);
 
-        // If emailService returned a dev fallback with a verifyUrl, expose it in the response
-        if (sendResult && sendResult.fallback && sendResult.verifyUrl) {
-          verificationLink = sendResult.verifyUrl;
-          console.log('[authController] Using dev verification link:', verificationLink);
+          console.log('[authController] Attempting to send verification code email to:', user.email);
+          await emailService.sendVerificationCodeEmail({
+            to: user.email,
+            name: user.firstName || user.lastName || '',
+            code: verificationCode
+          });
+        } else {
+          console.log('[authController] Creating email verification token for user:', user.id);
+          const token = await verificationService.createEmailToken(user.id);
+          console.log('[authController] Token created:', token);
+
+          console.log('[authController] Attempting to send verification email to:', user.email);
+          const sendResult = await emailService.sendVerificationEmail({
+            to: user.email,
+            name: user.firstName || user.lastName || '',
+            token
+          });
+
+          // If emailService returned a dev fallback with a verifyUrl, expose it in the response
+          if (sendResult && sendResult.fallback && sendResult.verifyUrl) {
+            verificationLink = sendResult.verifyUrl;
+            console.log('[authController] Using dev verification link:', verificationLink);
+          }
         }
 
-        console.log('[authController] Verification email send result:', !!sendResult);
+        console.log('[authController] Verification email send result:', !!verificationCode || !!verificationLink);
       } catch (error) {
         console.error('[authController] Error in email verification process:', error);
         // Still create the user but log the error
@@ -198,8 +214,8 @@ const register = async (req, res) => {
     const responsePayload = {
       success: true,
       user: sanitizeUser(user),
-      requiresEmailVerification: requiresVerification,
-      emailVerificationStatus: requiresVerification ? 'pending' : 'not_required'
+      requiresEmailVerification: false,
+      emailVerificationStatus: 'not_required'
     };
 
     if (verificationLink) {
@@ -231,12 +247,7 @@ const login = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    if (isFeatureEnabled('emailVerificationEnabled') && !user.emailVerified) {
-      return res.status(403).json({
-        success: false,
-        message: 'Email not verified. Please verify your email to continue.'
-      });
-    }
+    // Email verification check removed - users can login without verifying email
 
     const accessToken = jwt.sign(
       { id: user.id, role: user.role },
@@ -306,6 +317,25 @@ const verifyEmail = async (req, res) => {
   }
 };
 
+const verifyEmailCode = async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code) {
+      return res.status(400).json({ success: false, message: 'Verification code is required' });
+    }
+
+    const user = await verificationService.consumeEmailCode(code);
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired verification code' });
+    }
+
+    res.json({ success: true, message: 'Email verified successfully' });
+  } catch (err) {
+    console.error('Error verifying email code:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 const resendVerificationEmail = async (req, res) => {
   try {
     if (!isFeatureEnabled('emailVerificationEnabled')) {
@@ -321,12 +351,22 @@ const resendVerificationEmail = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Email is already verified' });
     }
 
-    const token = await verificationService.createEmailToken(user.id);
-    await emailService.sendVerificationEmail({
-      to: user.email,
-      name: user.firstName || user.lastName || '',
-      token
-    });
+    // Check user role to determine verification method
+    if (user.role === 'admin') {
+      const code = await verificationService.createEmailCode(user.id);
+      await emailService.sendVerificationCodeEmail({
+        to: user.email,
+        name: user.firstName || user.lastName || '',
+        code
+      });
+    } else {
+      const token = await verificationService.createEmailToken(user.id);
+      await emailService.sendVerificationEmail({
+        to: user.email,
+        name: user.firstName || user.lastName || '',
+        token
+      });
+    }
 
     res.json({ success: true, message: 'Verification email resent successfully' });
   } catch (err) {
@@ -340,5 +380,6 @@ module.exports = {
   login,
   refreshToken,
   verifyEmail,
+  verifyEmailCode,
   resendVerificationEmail
 };

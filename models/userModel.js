@@ -89,17 +89,37 @@ const userModel = {
       ...userData,
       password: '[REDACTED]' // Don't log the actual password
     });
-    
+
     // Validate required fields
     const requiredFields = ['email', 'password', 'username'];
     const missingFields = requiredFields.filter(field => !userData[field]);
-    
+
     if (missingFields.length > 0) {
       throw new Error(`Required fields missing: ${missingFields.join(', ')}`);
     }
-    
+
+    // Ensure all optional fields are defined (set to null if undefined) to satisfy Cypher query parameters
+    const sanitizedData = {
+      email: userData.email,
+      password: userData.password,
+      username: userData.username,
+      role: userData.role || 'client',
+      firstName: userData.firstName || null,
+      middleName: userData.middleName || null,
+      familyName: userData.familyName || null,
+      phoneNumber: userData.phoneNumber || null,
+      gender: userData.gender || null,
+      age: userData.age || null,
+      status: userData.status || 'pending',
+      emailVerified: userData.emailVerified !== undefined ? userData.emailVerified : false,
+      address: userData.address || null,
+      latitude: userData.latitude || null,
+      longitude: userData.longitude || null,
+      placeId: userData.placeId || null
+    };
+
     try {
-      const records = await executeQuery('createUser', userData);
+      const records = await executeQuery('createUser', sanitizedData);
       const node = records[0]?.get('user');
       if (!node) {
         throw new Error('Failed to create user - no user node returned');

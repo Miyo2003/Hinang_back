@@ -1,13 +1,12 @@
 // models/jobModel.js
 const path = require('path');
-const driver = require('../db/neo4j');
 const loadQueries = require('../utils/cypherLoader');
 const { retry } = require('../utils/retryUtils');
 
 const queries = loadQueries(path.join(__dirname, '../queries/job'));
 
 const executeQuery = async (queryName, params = {}) => {
-  const session = driver.session();
+  const session = global.__neo4jDriver.session();
   try {
     const query = queries[queryName];
     if (!query) throw new Error(`Query "${queryName}" not found in /queries/job`);
@@ -90,7 +89,7 @@ const jobModel = {
     if (!allowedLabels.includes(label)) throw new Error(`Invalid label: ${label}`);
     if (!allowedRelations.includes(relation)) throw new Error(`Invalid relation: ${relation}`);
 
-    const session = driver.session();
+    const session = global.__neo4jDriver.session();
     try {
       const query = `
         MATCH (job:Job {id: $id})

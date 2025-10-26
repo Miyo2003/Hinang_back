@@ -4,14 +4,14 @@ const commentController = require('../controllers/commentController');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 /**
- * @swagger
+ * @openapi
  * tags:
  *   name: Comments
  *   description: Post comments management
  */
 
 /**
- * @swagger
+ * @openapi
  * components:
  *   schemas:
  *     Comment:
@@ -47,7 +47,7 @@ const { authMiddleware } = require('../middleware/authMiddleware');
  */
 
 /**
- * @swagger
+ * @openapi
  * /comments:
  *   post:
  *     summary: Create a new comment
@@ -98,7 +98,7 @@ const { authMiddleware } = require('../middleware/authMiddleware');
 router.post('/', authMiddleware, commentController.create);
 
 /**
- * @swagger
+ * @openapi
  * /comments/post/{postId}:
  *   get:
  *     summary: Get comments for a post
@@ -182,7 +182,7 @@ router.post('/', authMiddleware, commentController.create);
 router.get('/post/:postId', authMiddleware, commentController.listForPost);
 
 /**
- * @swagger
+ * @openapi
  * /comments/{id}:
  *   delete:
  *     summary: Delete a comment (admin only)

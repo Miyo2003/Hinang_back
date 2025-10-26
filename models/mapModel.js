@@ -46,6 +46,26 @@ const mapModel = {
       location: r.loc?.properties || null,
       distance: r.dist
     }));
+  },
+
+  updateUserLocation: async (userId, latitude, longitude, address = '', city = '', country = '', postalCode = '') => {
+    if (!userId || typeof latitude !== 'number' || typeof longitude !== 'number') {
+      throw new Error('Invalid user location data');
+    }
+    const records = await executeQuery('updateUserLocation', { userId, latitude, longitude, address, city, country, postalCode });
+    return records[0]?.l?.properties || null;
+  },
+
+  getNearbyUsers: async (userId, radiusInMeters = 5000) => {
+    if (!userId || radiusInMeters <= 0) {
+      throw new Error('Invalid parameters for nearby users');
+    }
+    const records = await executeQuery('findNearbyUsers', { userId, radiusInMeters });
+    return records.map(r => ({
+      user: r.u2?.properties || null,
+      location: r.l2?.properties || null,
+      distance: r.distance
+    }));
   }
 };
 

@@ -1,5 +1,9 @@
 const applicationModel = require('../models/applicationModel');
+const jobModel = require('../models/jobModel');
+const userModel = require('../models/userModel');
+const notificationAPIService = require('../services/notificationAPIService');
 const logger = require('../utils/logger');
+
 const applicationController = {
   apply: async (req, res) => {
     try {
@@ -7,13 +11,21 @@ const applicationController = {
       if (!jobId) {
         return res.status(400).json({ success: false, message: 'JobId is required' });
       }
-      
+
       // Verify user is a worker
       if (req.user.role !== 'worker') {
         return res.status(403).json({ success: false, message: 'Only workers can apply to jobs' });
       }
 
       const application = await applicationModel.applyToJob(req.user.id, jobId);
+
+      // Notify client about new application
+      const job = await jobModel.getJobById(jobId);
+      const worker = await userModel.getUserById(req.user.id);
+      const client = await userModel.getUserById(job.clientId);
+
+      await notificationAPIService.notifyJobApplication(job, client.email, worker.username || worker.email);
+
       res.json({ success: true, application });
     } catch (err) {
       console.error('Error in apply:', err);

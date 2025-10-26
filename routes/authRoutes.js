@@ -6,14 +6,14 @@ const authController = require('../controllers/authController');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 /**
- * @swagger
+ * @openapi
  * tags:
  *   name: Authentication
  *   description: User authentication and registration
  */
 
 /**
- * @swagger
+ * @openapi
  * components:
  *   schemas:
  *     User:
@@ -87,11 +87,11 @@ const { authMiddleware } = require('../middleware/authMiddleware');
  */
 
 /**
- * @swagger
+ * @openapi
  * /auth/register:
  *   post:
  *     summary: Register a new user with email verification
- *     description: Registers a new user with real-time email verification using Abstract API. 
+ *     description: Registers a new user with real-time email verification using Abstract API.
  *                 Checks email deliverability, quality, and security before registration.
  *     tags: [Authentication]
  *     requestBody:
@@ -243,7 +243,7 @@ const { authMiddleware } = require('../middleware/authMiddleware');
 router.post('/register', authController.register);
 
 /**
- * @swagger
+ * @openapi
  * /auth/login:
  *   post:
  *     summary: Login user
@@ -332,7 +332,7 @@ router.post('/register', authController.register);
 router.post('/login', authController.login);
 
 /**
- * @swagger
+ * @openapi
  * /auth/verify-email:
  *   get:
  *     summary: Verify user email
@@ -390,7 +390,70 @@ router.post('/login', authController.login);
 router.get('/verify-email', authController.verifyEmail);
 
 /**
- * @swagger
+ * @openapi
+ * /auth/verify-email-code:
+ *   post:
+ *     summary: Verify user email with code
+ *     description: Verifies a user's email address using the code sent to their email (for admin users)
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - code
+ *             properties:
+ *               code:
+ *                 type: string
+ *                 description: Verification code received via email
+ *                 example: "123456"
+ *     responses:
+ *       200:
+ *         description: Email verified successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Email verified successfully"
+ *       400:
+ *         description: Invalid or expired code
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid or expired verification code"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
+router.post('/verify-email-code', authController.verifyEmailCode);
+
+/**
+ * @openapi
  * /auth/resend-verification:
  *   post:
  *     summary: Resend email verification

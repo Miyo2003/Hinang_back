@@ -99,6 +99,49 @@ const sendVerificationEmail = async ({ to, name = 'there', token }) => {
   }
 };
 
+const sendVerificationCodeEmail = async ({ to, name = 'there', code }) => {
+  console.log('[emailService] Starting email code verification process');
+  console.log('- To:', to);
+  console.log('- Code:', code);
+
+  // If no Resend client available, return a dev fallback
+  if (!resend) {
+    console.warn('[emailService] RESEND_API_KEY missing. Skipping email send.');
+    return { fallback: true };
+  }
+
+  try {
+    console.log('[emailService] Starting email code send attempt:');
+    console.log('- To:', to);
+    console.log('- From:', process.env.RESEND_FROM_EMAIL || 'Hinang <no-reply@hinang.app>');
+    
+    const result = await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || 'Hinang <no-reply@hinang.app>',
+      to,
+      subject: 'Your verification code',
+      html: `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+        <h2>Welcome to Hinang, ${name}!</h2>
+        <p>Thanks for signing up. Please use the following verification code to complete your registration:</p>
+        <div style="background:#f4f4f4;padding:20px;border-radius:6px;text-align:center;margin:20px 0;">
+          <h1 style="color:#1f7aec;font-size:32px;margin:0;">${code}</h1>
+        </div>
+        <p>This code will expire in 24 hours.</p>
+        <p>If you didn’t create an account, you can safely ignore this email.</p>
+        <p>— The Hinang Team</p>
+      </div>
+    `
+    });
+
+    console.log(`[emailService] Verification code email sent to ${to}. resendResult=${JSON.stringify(result)}`);
+    return { fallback: false, result };
+  } catch (err) {
+    console.error('[emailService] Failed to send verification code email to', to, ':', err && err.message ? err.message : err);
+    throw err;
+  }
+};
+
 module.exports = {
-  sendVerificationEmail
+  sendVerificationEmail,
+  sendVerificationCodeEmail
 };

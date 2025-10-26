@@ -24,10 +24,11 @@ const createEmailToken = async (userId) => {
     await session.run(
       `
       MATCH (u:User {id: $userId})
-      OPTIONAL MATCH (u)-[oldRel:HAS_EMAIL_TOKEN]->(oldToken:EmailVerification)
+      OPTIONAL MATCH (u)-[oldRel:HAS_EMAIL_TOKEN]->(oldToken:EmailVerification {type: 'token'})
       DETACH DELETE oldToken
       CREATE (token:EmailVerification {
         token: $token,
+        type: 'token',
         createdAt: datetime(),
         expiresAt: datetime($expiresAt)
       })
@@ -37,6 +38,34 @@ const createEmailToken = async (userId) => {
       { userId, token, expiresAt }
     );
     return token;
+  } finally {
+    await session.close();
+  }
+};
+
+const createEmailCode = async (userId) => {
+  const code = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
+  const expiresAt = new Date(Date.now() + EMAIL_TOKEN_TTL_HOURS * 60 * 60 * 1000).toISOString();
+
+  const session = driver.session();
+  try {
+    await session.run(
+      `
+      MATCH (u:User {id: $userId})
+      OPTIONAL MATCH (u)-[oldRel:HAS_EMAIL_TOKEN]->(oldCode:EmailVerification {type: 'code'})
+      DETACH DELETE oldCode
+      CREATE (codeNode:EmailVerification {
+        code: $code,
+        type: 'code',
+        createdAt: datetime(),
+        expiresAt: datetime($expiresAt)
+      })
+      MERGE (u)-[:HAS_EMAIL_TOKEN]->(codeNode)
+      RETURN codeNode
+      `,
+      { userId, code, expiresAt }
+    );
+    return code;
   } finally {
     await session.close();
   }
@@ -64,7 +93,31 @@ const consumeEmailToken = async (token) => {
   }
 };
 
+const consumeEmailCode = async (code) => {
+  const session = driver.session();
+  try {
+    const result = await session.run(
+      `
+      MATCH (u:User)-[rel:HAS_EMAIL_TOKEN]->(codeNode:EmailVerification {code: $code, type: 'code'})
+      WHERE codeNode.expiresAt > datetime()
+      SET u.emailVerified = true,
+          u.emailVerifiedAt = datetime()
+      DETACH DELETE codeNode
+      RETURN u
+      `,
+      { code }
+    );
+
+    const record = result.records[0];
+    return record ? record.get('u').properties : null;
+  } finally {
+    await session.close();
+  }
+};
+
 module.exports = {
   createEmailToken,
-  consumeEmailToken
+  createEmailCode,
+  consumeEmailToken,
+  consumeEmailCode
 };

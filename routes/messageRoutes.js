@@ -4,14 +4,14 @@ const messageController = require('../controllers/messageController');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 /**
- * @swagger
+ * @openapi
  * tags:
  *   name: Messages
  *   description: Chat messages management
  */
 
 /**
- * @swagger
+ * @openapi
  * components:
  *   schemas:
  *     Message:
@@ -61,7 +61,7 @@ const { authMiddleware } = require('../middleware/authMiddleware');
  */
 
 /**
- * @swagger
+ * @openapi
  * /messages/{chatId}:
  *   post:
  *     summary: Send a new message
@@ -129,7 +129,7 @@ const { authMiddleware } = require('../middleware/authMiddleware');
 router.post('/:chatId', authMiddleware, messageController.sendMessage);
 
 /**
- * @swagger
+ * @openapi
  * /messages/{chatId}:
  *   get:
  *     summary: Get chat conversation
@@ -188,7 +188,7 @@ router.post('/:chatId', authMiddleware, messageController.sendMessage);
 router.get('/:chatId', authMiddleware, messageController.getConversation);
 
 /**
- * @swagger
+ * @openapi
  * /messages/{chatId}/search:
  *   get:
  *     summary: Search chat messages
@@ -247,7 +247,7 @@ router.get('/:chatId', authMiddleware, messageController.getConversation);
 router.get('/:chatId/search', authMiddleware, messageController.searchMessages);
 
 /**
- * @swagger
+ * @openapi
  * /messages/{chatId}/upload-url:
  *   post:
  *     summary: Generate upload URL for attachments
@@ -307,7 +307,7 @@ router.get('/:chatId/search', authMiddleware, messageController.searchMessages);
 router.post('/:chatId/upload-url', authMiddleware, messageController.generateUploadUrl);
 
 /**
- * @swagger
+ * @openapi
  * /messages/read/{messageId}:
  *   post:
  *     summary: Mark message as read
@@ -347,7 +347,7 @@ router.post('/:chatId/upload-url', authMiddleware, messageController.generateUpl
 router.post('/read/:messageId', authMiddleware, messageController.markAsRead);
 
 /**
- * @swagger
+ * @openapi
  * /messages/subject/{messageId}:
  *   patch:
  *     summary: Update message subject
@@ -399,7 +399,7 @@ router.post('/read/:messageId', authMiddleware, messageController.markAsRead);
 router.patch('/subject/:messageId', authMiddleware, messageController.updateSubject);
 
 /**
- * @swagger
+ * @openapi
  * /messages/{messageId}:
  *   delete:
  *     summary: Delete a message

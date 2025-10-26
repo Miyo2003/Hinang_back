@@ -79,14 +79,17 @@ app.use('/maps', require('./routes/mapRoutes'));
 app.use('/posts', require('./routes/postRoutes'));
 app.use('/comments', require('./routes/commentRoutes'));
 app.use('/profiles', require('./routes/profileRoutes'));
+app.use('/profile', require('./routes/profileRoutes')); // Alias for /profiles
 app.use('/services', require('./routes/serviceRoutes'));
 app.use('/wallets', require('./routes/walletRoutes'));
+app.use('/wallet', require('./routes/walletRoutes')); // Alias for /wallets
 app.use('/attachments', require('./routes/attachmentRoutes'));
 app.use('/reports', require('./routes/reportRoutes'));
 app.use('/analytics', authMiddleware, require('./routes/analyticsRoutes'));
 app.use('/presence', require('./routes/presenceRoutes'));
 app.use('/meetings', require('./routes/meetingRoutes'));
 app.use('/intelligence', require('./routes/intelligenceRoutes'));
+app.use('/notification-api', require('./routes/notificationAPIRoutes'));
 
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(specs, {
   explorer: true,
