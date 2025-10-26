@@ -7,6 +7,7 @@ CREATE (a:Attachment {
     fileType: $fileType,
     fileSize: $fileSize,
     url: $url,
+    publicId: $publicId,
     uploadedAt: datetime()
 })
 MERGE (owner)-[:HAS_ATTACHMENT]->(a)

@@ -23,5 +23,6 @@
   "customProfilesEnabled": true,
   "advancedRecommendationsEnabled": true,
   "emailVerificationEnabled": true,
-  "locationVerificationEnabled": false
+  "locationVerificationEnabled": false,
+  "attachmentsEnabled": true
 }

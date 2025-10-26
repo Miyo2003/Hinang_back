@@ -46,7 +46,31 @@ const generateSignedUpload = async ({ fileType }) => {
   };
 };
 
+const generateAttachmentSignedUpload = async ({ fileType, folder = 'attachments' }) => {
+  assertFeatureEnabled('attachmentsEnabled');
+
+  if (!SUPPORTED_TYPES.includes(fileType)) {
+    throw new Error(`Unsupported file type: ${fileType}`);
+  }
+
+  const timestamp = Math.round(Date.now() / 1000);
+  const { signature } = generateCloudinarySignature({ timestamp, folder });
+
+  return {
+    provider: 'cloudinary',
+    uploadUrl: `https://api.cloudinary.com/v1_1/${cloudConfig.cloudinary.cloudName}/auto/upload`,
+    params: {
+      api_key: cloudConfig.cloudinary.apiKey,
+      upload_preset: cloudConfig.cloudinary.unsignedPreset,
+      timestamp,
+      signature,
+      folder
+    }
+  };
+};
+
 module.exports = {
   SUPPORTED_TYPES,
-  generateSignedUpload
+  generateSignedUpload,
+  generateAttachmentSignedUpload
 };

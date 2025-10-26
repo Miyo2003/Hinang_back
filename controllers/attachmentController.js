@@ -21,13 +21,8 @@ const uploadAttachment = async (req, res) => {
             return res.status(400).json({ message: 'File size exceeds limit' });
         }
 
-        // Add file URL (this would typically come from your file storage service)
-        const fileData = {
-            ...req.file,
-            url: `/uploads/${req.file.filename}` // Example URL, adjust based on your setup
-        };
-
-        const attachment = await AttachmentModel.createAttachment(ownerId, fileData);
+        // Upload to Cloudinary via model
+        const attachment = await AttachmentModel.createAttachment(ownerId, req.file.buffer, req.file);
         res.status(201).json(attachment);
     } catch (error) {
         console.error('Error uploading attachment:', error);
