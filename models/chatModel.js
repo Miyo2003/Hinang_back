@@ -46,8 +46,8 @@ const chatModel = {
     return records[0]?.deletedMessage?.properties || null;
   },
 
-  getChatsForUser: async (userId) => {
-    const records = await executeQuery('getChatsForUser', { userId });
+  getChatsForUser: async (userId, { offset = 0, limit = 20 } = {}) => {
+    const records = await executeQuery('getChatsForUser', { userId, offset: parseInt(offset, 10), limit: parseInt(limit, 10) });
     const partners = new Map();
 
     records.forEach(r => {
@@ -57,6 +57,11 @@ const chatModel = {
     });
 
     return Array.from(partners.values());
+  },
+
+  countChatsForUser: async (userId) => {
+    const records = await executeQuery('countChatsForUser', { userId });
+    return records[0]?.count?.toNumber() || 0;
   }
 };
 
