@@ -5,3 +5,7 @@ error.log
 combined.log
 TODO.md
 test_register.json
+login_response.json
+login_response_utf8.json
+test_file.txt
+test_file_plain.txt
