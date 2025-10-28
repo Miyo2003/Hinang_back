@@ -30,7 +30,7 @@ async function validateSetup() {
 // Validate setup when the service initializes
 validateSetup().catch(console.error);
 
-const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:3000';
+const appBaseUrl = process.env.APP_BASE_URL || 'https://hinang-back.onrender.com';
 
 const sendVerificationEmail = async ({ to, name = 'there', token }) => {
   console.log('[emailService] Starting email verification process');

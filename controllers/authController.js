@@ -172,37 +172,24 @@ const register = async (req, res) => {
 
     if (requiresVerification) {
       try {
-        if (role === 'admin') {
-          console.log('[authController] Creating email verification code for admin user:', user.id);
-          verificationCode = await verificationService.createEmailCode(user.id);
-          console.log('[authController] Code created:', verificationCode);
+        console.log('[authController] Creating email verification token for user:', user.id);
+        const token = await verificationService.createEmailToken(user.id);
+        console.log('[authController] Token created:', token);
 
-          console.log('[authController] Attempting to send verification code email to:', user.email);
-          await emailService.sendVerificationCodeEmail({
-            to: user.email,
-            name: user.firstName || user.lastName || '',
-            code: verificationCode
-          });
-        } else {
-          console.log('[authController] Creating email verification token for user:', user.id);
-          const token = await verificationService.createEmailToken(user.id);
-          console.log('[authController] Token created:', token);
+        console.log('[authController] Attempting to send verification email to:', user.email);
+        const sendResult = await emailService.sendVerificationEmail({
+          to: user.email,
+          name: user.firstName || user.lastName || '',
+          token
+        });
 
-          console.log('[authController] Attempting to send verification email to:', user.email);
-          const sendResult = await emailService.sendVerificationEmail({
-            to: user.email,
-            name: user.firstName || user.lastName || '',
-            token
-          });
-
-          // If emailService returned a dev fallback with a verifyUrl, expose it in the response
-          if (sendResult && sendResult.fallback && sendResult.verifyUrl) {
-            verificationLink = sendResult.verifyUrl;
-            console.log('[authController] Using dev verification link:', verificationLink);
-          }
+        // If emailService returned a dev fallback with a verifyUrl, expose it in the response
+        if (sendResult && sendResult.fallback && sendResult.verifyUrl) {
+          verificationLink = sendResult.verifyUrl;
+          console.log('[authController] Using dev verification link:', verificationLink);
         }
 
-        console.log('[authController] Verification email send result:', !!verificationCode || !!verificationLink);
+        console.log('[authController] Verification email send result:', !!verificationLink);
       } catch (error) {
         console.error('[authController] Error in email verification process:', error);
         // Still create the user but log the error
@@ -351,22 +338,12 @@ const resendVerificationEmail = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Email is already verified' });
     }
 
-    // Check user role to determine verification method
-    if (user.role === 'admin') {
-      const code = await verificationService.createEmailCode(user.id);
-      await emailService.sendVerificationCodeEmail({
-        to: user.email,
-        name: user.firstName || user.lastName || '',
-        code
-      });
-    } else {
-      const token = await verificationService.createEmailToken(user.id);
-      await emailService.sendVerificationEmail({
-        to: user.email,
-        name: user.firstName || user.lastName || '',
-        token
-      });
-    }
+    const token = await verificationService.createEmailToken(user.id);
+    await emailService.sendVerificationEmail({
+      to: user.email,
+      name: user.firstName || user.lastName || '',
+      token
+    });
 
     res.json({ success: true, message: 'Verification email resent successfully' });
   } catch (err) {
