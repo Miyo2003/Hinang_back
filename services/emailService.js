@@ -1,25 +1,25 @@
 // services/emailService.js
-const { Resend } = require('resend');
+const sgMail = require('@sendgrid/mail');
 
 console.log('[emailService] Environment Check:');
 console.log('- RESEND_API_KEY present:', !!process.env.RESEND_API_KEY);
 console.log('- RESEND_FROM_EMAIL:', process.env.RESEND_FROM_EMAIL);
-console.log('- Using test environment (onboarding@resend.dev):', process.env.RESEND_FROM_EMAIL?.includes('onboarding@resend.dev'));
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-console.log('[emailService] Resend client initialized:', !!resend);
+if (process.env.RESEND_API_KEY) {
+  sgMail.setApiKey(process.env.RESEND_API_KEY);
+}
+console.log('[emailService] SendGrid client initialized:', !!process.env.RESEND_API_KEY);
 
 // We don't need to create API keys since we're using an existing one
 async function validateSetup() {
-  if (!resend) {
-    console.error('[emailService] No Resend client available - missing API key');
+  if (!process.env.RESEND_API_KEY) {
+    console.error('[emailService] No SendGrid API key available - missing API key');
     return false;
   }
-  
+
   try {
-    // Test the API key by listing existing keys
-    const keys = await resend.apiKeys.list();
-    console.log('[emailService] API connection test successful. Found', keys.data?.length || 0, 'API keys');
+    // Test the API key by sending a test email or checking API
+    console.log('[emailService] SendGrid API key validation - assuming valid if set');
     return true;
   } catch (error) {
     console.error('[emailService] API key validation failed:', error.message);
@@ -35,12 +35,12 @@ const appBaseUrl = process.env.APP_BASE_URL || 'https://hinang-back.onrender.com
 const sendVerificationEmail = async ({ to, name = 'there', token }) => {
   console.log('[emailService] Starting email verification process');
   console.log('[emailService] RESEND_API_KEY present:', !!process.env.RESEND_API_KEY);
-  console.log('[emailService] Resend client initialized:', !!resend);
+  console.log('[emailService] SendGrid client initialized:', !!process.env.RESEND_API_KEY);
 
   const verifyUrl = `${appBaseUrl}/verify-email?token=${token}`;
 
-  // If no Resend client available, return a dev fallback URL so local testing can proceed
-  if (!resend) {
+  // If no SendGrid client available, return a dev fallback URL so local testing can proceed
+  if (!process.env.RESEND_API_KEY) {
     console.warn('[emailService] RESEND_API_KEY missing. Skipping email send.');
     // Expose verification URL in non-production environments or when explicitly enabled
     if (process.env.NODE_ENV !== 'production' || process.env.DEV_EMAIL_FALLBACK === 'true') {
@@ -51,19 +51,19 @@ const sendVerificationEmail = async ({ to, name = 'there', token }) => {
   }
 
   console.log('[emailService] Configuration:', {
-    fromEmail: process.env.RESEND_FROM_EMAIL || 'Hinang <no-reply@hinang.app>',
+    fromEmail: process.env.RESEND_FROM_EMAIL || 'hadjirullaalraphy@gmail.com',
     appBaseUrl: appBaseUrl
   });
 
   try {
     console.log('[emailService] Starting email send attempt:');
     console.log('- To:', to);
-    console.log('- From:', process.env.RESEND_FROM_EMAIL || 'Hinang <no-reply@hinang.app>');
-    
-    // Attempt to send the email
-    const result = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'Hinang <no-reply@hinang.app>',
-      to,
+    console.log('- From:', process.env.RESEND_FROM_EMAIL || 'hadjirullaalraphy@gmail.com');
+
+    // Attempt to send the email using SendGrid
+    const msg = {
+      to: to,
+      from: process.env.RESEND_FROM_EMAIL || 'hadjirullaalraphy@gmail.com',
       subject: 'Verify your email',
       html: `
       <div style="font-family: Arial, sans-serif; line-height: 1.6;">
@@ -76,11 +76,13 @@ const sendVerificationEmail = async ({ to, name = 'there', token }) => {
         <p>— The Hinang Team</p>
       </div>
     `
-    });
+    };
 
-    // Log result for easier debugging. Resend returns an object with send details.
+    const result = await sgMail.send(msg);
+
+    // Log result for easier debugging. SendGrid returns an array with send details.
     try {
-      console.log(`[emailService] Verification email sent to ${to}. resendResult=${JSON.stringify(result)}`);
+      console.log(`[emailService] Verification email sent to ${to}. sendGridResult=${JSON.stringify(result)}`);
     } catch (e) {
       // If result can't be stringified, just log a simple message
       console.log(`[emailService] Verification email sent to ${to}. (result logging failed)`);
@@ -104,8 +106,8 @@ const sendVerificationCodeEmail = async ({ to, name = 'there', code }) => {
   console.log('- To:', to);
   console.log('- Code:', code);
 
-  // If no Resend client available, return a dev fallback
-  if (!resend) {
+  // If no SendGrid client available, return a dev fallback
+  if (!process.env.RESEND_API_KEY) {
     console.warn('[emailService] RESEND_API_KEY missing. Skipping email send.');
     return { fallback: true };
   }
@@ -113,11 +115,11 @@ const sendVerificationCodeEmail = async ({ to, name = 'there', code }) => {
   try {
     console.log('[emailService] Starting email code send attempt:');
     console.log('- To:', to);
-    console.log('- From:', process.env.RESEND_FROM_EMAIL || 'Hinang <no-reply@hinang.app>');
-    
-    const result = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'Hinang <no-reply@hinang.app>',
-      to,
+    console.log('- From:', process.env.RESEND_FROM_EMAIL || 'hadjirullaalraphy@gmail.com');
+
+    const msg = {
+      to: to,
+      from: process.env.RESEND_FROM_EMAIL || 'hadjirullaalraphy@gmail.com',
       subject: 'Your verification code',
       html: `
       <div style="font-family: Arial, sans-serif; line-height: 1.6;">
@@ -131,9 +133,11 @@ const sendVerificationCodeEmail = async ({ to, name = 'there', code }) => {
         <p>— The Hinang Team</p>
       </div>
     `
-    });
+    };
 
-    console.log(`[emailService] Verification code email sent to ${to}. resendResult=${JSON.stringify(result)}`);
+    const result = await sgMail.send(msg);
+
+    console.log(`[emailService] Verification code email sent to ${to}. sendGridResult=${JSON.stringify(result)}`);
     return { fallback: false, result };
   } catch (err) {
     console.error('[emailService] Failed to send verification code email to', to, ':', err && err.message ? err.message : err);

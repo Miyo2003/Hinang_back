@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { Resend } = require('resend');
+const sgMail = require('@sendgrid/mail');
 
 const testEmail = async () => {
   if (!process.env.RESEND_API_KEY) {
@@ -11,19 +11,21 @@ const testEmail = async () => {
   console.log('API Key:', process.env.RESEND_API_KEY.substring(0, 8) + '...');
   console.log('From:', process.env.RESEND_FROM_EMAIL);
 
-  const resend = new Resend(process.env.RESEND_API_KEY);
+  sgMail.setApiKey(process.env.RESEND_API_KEY);
 
   try {
-    // Replace this with your email address that you used to sign up for Resend
-    // or an email you've added as a test email in Resend dashboard
-    const TEST_EMAIL = 'your-email@example.com'; // <-- Change this!
+    // Replace this with your email address that you used to sign up for SendGrid
+    // or an email you've added as a test email in SendGrid dashboard
+    const TEST_EMAIL = 'miyoaydol@gmail.com'; // <-- Change this!
 
-    const result = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL,
+    const msg = {
       to: TEST_EMAIL,
+      from: process.env.RESEND_FROM_EMAIL || 'hadjirullaalraphy@gmail.com',
       subject: 'Test Email from Hinang',
       html: '<p>If you see this, email sending is working! 🎉</p>'
-    });
+    };
+
+    const result = await sgMail.send(msg);
 
     console.log('✅ Email sent successfully!');
     console.log('Result:', result);
@@ -33,9 +35,9 @@ const testEmail = async () => {
       console.log('\n💡 Tips:');
       console.log('1. Check if your RESEND_API_KEY is correct');
       console.log('2. Make sure the recipient email is either:');
-      console.log('   - The email you used to sign up for Resend');
-      console.log('   - Added as a test email in your Resend dashboard');
-      console.log('3. Or verify your domain in Resend dashboard to send to any email');
+      console.log('   - The email you used to sign up for SendGrid');
+      console.log('   - Added as a test email in your SendGrid dashboard');
+      console.log('3. Or verify your domain in SendGrid dashboard to send to any email');
     }
   }
 };

@@ -201,8 +201,8 @@ const register = async (req, res) => {
     const responsePayload = {
       success: true,
       user: sanitizeUser(user),
-      requiresEmailVerification: false,
-      emailVerificationStatus: 'not_required'
+      requiresEmailVerification: requiresVerification,
+      emailVerificationStatus: requiresVerification ? 'pending' : 'verified'
     };
 
     if (verificationLink) {
@@ -234,7 +234,15 @@ const login = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    // Email verification check removed - users can login without verifying email
+    // Check email verification if feature is enabled
+    if (isFeatureEnabled('emailVerificationEnabled') && !user.emailVerified) {
+      return res.status(403).json({
+        success: false,
+        message: 'Email not verified. Please verify your email before logging in.',
+        requiresEmailVerification: true,
+        email: user.email
+      });
+    }
 
     const accessToken = jwt.sign(
       { id: user.id, role: user.role },
