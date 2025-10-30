@@ -361,21 +361,25 @@ const verifyEmail = async (req, res) => {
   }
 };
 
-const verifyEmailCode = async (req, res) => {
+const checkVerificationStatus = async (req, res) => {
   try {
-    const { code } = req.body;
-    if (!code) {
-      return res.status(400).json({ success: false, message: 'Verification code is required' });
+    const { email } = req.query;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
     }
 
-    const user = await verificationService.consumeEmailCode(code);
+    const user = await userModel.getUserByEmail(email);
     if (!user) {
-      return res.status(400).json({ success: false, message: 'Invalid or expired verification code' });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    res.json({ success: true, message: 'Email verified successfully' });
+    res.json({
+      success: true,
+      emailVerified: user.emailVerified,
+      emailVerifiedAt: user.emailVerifiedAt
+    });
   } catch (err) {
-    console.error('Error verifying email code:', err);
+    console.error('Error checking verification status:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 };
@@ -414,6 +418,6 @@ module.exports = {
   login,
   refreshToken,
   verifyEmail,
-  verifyEmailCode,
+  checkVerificationStatus,
   resendVerificationEmail
 };

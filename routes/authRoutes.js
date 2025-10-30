@@ -450,7 +450,7 @@ router.get('/verify-email', authController.verifyEmail);
  *                   type: string
  *                   example: "Internal server error"
  */
-router.post('/verify-email-code', authController.verifyEmailCode);
+router.get('/check-verification-status', authController.checkVerificationStatus);
 
 /**
  * @openapi

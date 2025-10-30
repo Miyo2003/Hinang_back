@@ -93,23 +93,25 @@ const consumeEmailToken = async (token) => {
   }
 };
 
-const consumeEmailCode = async (code) => {
+const checkEmailVerificationStatus = async (userId) => {
   const session = driver.session();
   try {
     const result = await session.run(
       `
-      MATCH (u:User)-[rel:HAS_EMAIL_TOKEN]->(codeNode:EmailVerification {code: $code, type: 'code'})
-      WHERE codeNode.expiresAt > datetime()
-      SET u.emailVerified = true,
-          u.emailVerifiedAt = datetime()
-      DETACH DELETE codeNode
-      RETURN u
+      MATCH (u:User {id: $userId})
+      RETURN u.emailVerified, u.emailVerifiedAt
       `,
-      { code }
+      { userId }
     );
 
     const record = result.records[0];
-    return record ? record.get('u').properties : null;
+    if (record) {
+      return {
+        emailVerified: record.get('u.emailVerified'),
+        emailVerifiedAt: record.get('u.emailVerifiedAt')
+      };
+    }
+    return null;
   } finally {
     await session.close();
   }
@@ -119,5 +121,5 @@ module.exports = {
   createEmailToken,
   createEmailCode,
   consumeEmailToken,
-  consumeEmailCode
+  checkEmailVerificationStatus
 };
