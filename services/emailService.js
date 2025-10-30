@@ -37,7 +37,7 @@ const sendVerificationEmail = async ({ to, name = 'there', token }) => {
   console.log('[emailService] SENDGRID_API_KEY present:', !!process.env.SENDGRID_API_KEY);
   console.log('[emailService] SendGrid client initialized:', !!process.env.SENDGRID_API_KEY);
 
-  const verifyUrl = `${appBaseUrl}/verify-email?token=${token}`;
+  const verifyUrl = `${appBaseUrl}/auth/verify-email?token=${token}`;
 
   // If no SendGrid client available, return a dev fallback URL so local testing can proceed
   if (!process.env.SENDGRID_API_KEY) {
