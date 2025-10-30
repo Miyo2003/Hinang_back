@@ -5,7 +5,8 @@ const commentController = {
     try {
       const { postId, content } = req.body;
       const userId = req.user.id;
-      const comment = await commentModel.create(userId, postId, content);
+      const mediaFiles = req.files || []; // Handle multiple file uploads
+      const comment = await commentModel.create(userId, postId, content, mediaFiles);
       res.json({ success: true, comment });
     } catch (err) {
       res.status(500).json({ success: false, message: err.message });
@@ -21,10 +22,12 @@ const commentController = {
   },
   delete: async (req, res) => {
     try {
+      // Get comment to check ownership
+      const comment = await commentModel.getById(req.params.id);
+      if (!comment) return res.status(404).json({ success: false, message: 'Comment not found' });
+
       // Only owner or admin can delete
-      // (You may want to fetch the comment and check userId)
-      // For now, assume only admin can delete
-      if (req.user.role !== 'admin') {
+      if (req.user.role !== 'admin' && req.user.id !== comment.userId) {
         return res.status(403).json({ success: false, message: 'Forbidden' });
       }
       await commentModel.delete(req.params.id);

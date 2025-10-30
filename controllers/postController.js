@@ -5,7 +5,8 @@ const postController = {
     try {
       const { content } = req.body;
       const userId = req.user.id;
-      const post = await postModel.create(userId, content);
+      const mediaFiles = req.files || []; // Handle multiple file uploads
+      const post = await postModel.create(userId, content, mediaFiles);
       res.json({ success: true, post });
     } catch (err) {
       res.status(500).json({ success: false, message: err.message });

@@ -1,8 +1,8 @@
-// models/postModel.js
 const path = require('path');
 const driver = require('../db/neo4j');
 const loadQueries = require('../utils/cypherLoader');
 const { retry } = require('../utils/retryUtils');
+const { uploadToCloudinary, deleteFromCloudinary } = require('../services/cloudinaryService');
 
 const queries = loadQueries(path.join(__dirname, '../queries/post'));
 
@@ -23,9 +23,30 @@ const executeQuery = async (queryName, params = {}) => {
 };
 
 const postModel = {
-  create: async (userId, content) => {
+  create: async (userId, content, mediaFiles = []) => {
     if (!content || content.trim().length === 0) throw new Error('Content cannot be empty');
-    const records = await executeQuery('create', { userId, content });
+
+    // Upload media files to Cloudinary
+    const mediaAttachments = [];
+    for (const file of mediaFiles) {
+      const cloudinaryResult = await uploadToCloudinary(file.buffer, {
+        public_id: `${userId}_post_${Date.now()}_${file.originalname}`,
+        folder: 'posts'
+      });
+      mediaAttachments.push({
+        url: cloudinaryResult.secure_url,
+        publicId: cloudinaryResult.public_id,
+        type: file.mimetype,
+        size: file.size,
+        filename: file.originalname
+      });
+    }
+
+    const records = await executeQuery('create', {
+      userId,
+      content,
+      media: mediaAttachments
+    });
     return records[0]?.post?.properties || null;
   },
 
@@ -40,6 +61,20 @@ const postModel = {
   },
 
   delete: async (id) => {
+    // Get post to retrieve media publicIds for Cloudinary deletion
+    const post = await this.getById(id);
+    if (post && post.media) {
+      for (const media of post.media) {
+        if (media.publicId) {
+          try {
+            await deleteFromCloudinary(media.publicId);
+          } catch (error) {
+            console.error('Error deleting media from Cloudinary:', error);
+          }
+        }
+      }
+    }
+
     await executeQuery('delete', { id });
     return true;
   },

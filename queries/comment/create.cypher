@@ -4,6 +4,7 @@ CREATE (comment:Comment {
     id: randomUUID(),
     userId: $userId,
     content: $content,
+    media: $media,
     createdAt: datetime()
 })-[:ON]->(post)
 RETURN comment
