@@ -2,17 +2,17 @@
 const sgMail = require('@sendgrid/mail');
 
 console.log('[emailService] Environment Check:');
-console.log('- RESEND_API_KEY present:', !!process.env.RESEND_API_KEY);
-console.log('- RESEND_FROM_EMAIL:', process.env.RESEND_FROM_EMAIL);
+console.log('- SENDGRID_API_KEY present:', !!process.env.SENDGRID_API_KEY);
+console.log('- SENDGRID_FROM_EMAIL:', process.env.SENDGRID_FROM_EMAIL);
 
-if (process.env.RESEND_API_KEY) {
-  sgMail.setApiKey(process.env.RESEND_API_KEY);
+if (process.env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 }
-console.log('[emailService] SendGrid client initialized:', !!process.env.RESEND_API_KEY);
+console.log('[emailService] SendGrid client initialized:', !!process.env.SENDGRID_API_KEY);
 
 // We don't need to create API keys since we're using an existing one
 async function validateSetup() {
-  if (!process.env.RESEND_API_KEY) {
+  if (!process.env.SENDGRID_API_KEY) {
     console.error('[emailService] No SendGrid API key available - missing API key');
     return false;
   }
@@ -34,14 +34,14 @@ const appBaseUrl = process.env.APP_BASE_URL || 'https://hinang-back.onrender.com
 
 const sendVerificationEmail = async ({ to, name = 'there', token }) => {
   console.log('[emailService] Starting email verification process');
-  console.log('[emailService] RESEND_API_KEY present:', !!process.env.RESEND_API_KEY);
-  console.log('[emailService] SendGrid client initialized:', !!process.env.RESEND_API_KEY);
+  console.log('[emailService] SENDGRID_API_KEY present:', !!process.env.SENDGRID_API_KEY);
+  console.log('[emailService] SendGrid client initialized:', !!process.env.SENDGRID_API_KEY);
 
   const verifyUrl = `${appBaseUrl}/verify-email?token=${token}`;
 
   // If no SendGrid client available, return a dev fallback URL so local testing can proceed
-  if (!process.env.RESEND_API_KEY) {
-    console.warn('[emailService] RESEND_API_KEY missing. Skipping email send.');
+  if (!process.env.SENDGRID_API_KEY) {
+    console.warn('[emailService] SENDGRID_API_KEY missing. Skipping email send.');
     // Expose verification URL in non-production environments or when explicitly enabled
     if (process.env.NODE_ENV !== 'production' || process.env.DEV_EMAIL_FALLBACK === 'true') {
       console.log('[emailService] Returning verification URL for local testing:', verifyUrl);
@@ -51,19 +51,19 @@ const sendVerificationEmail = async ({ to, name = 'there', token }) => {
   }
 
   console.log('[emailService] Configuration:', {
-    fromEmail: process.env.RESEND_FROM_EMAIL || 'hadjirullaalraphy@gmail.com',
+    fromEmail: process.env.SENDGRID_FROM_EMAIL || 'hadjirullaalraphy@gmail.com',
     appBaseUrl: appBaseUrl
   });
 
   try {
     console.log('[emailService] Starting email send attempt:');
     console.log('- To:', to);
-    console.log('- From:', process.env.RESEND_FROM_EMAIL || 'hadjirullaalraphy@gmail.com');
+    console.log('- From:', process.env.SENDGRID_FROM_EMAIL || 'hadjirullaalraphy@gmail.com');
 
     // Attempt to send the email using SendGrid
     const msg = {
       to: to,
-      from: process.env.RESEND_FROM_EMAIL || 'hadjirullaalraphy@gmail.com',
+      from: process.env.SENDGRID_FROM_EMAIL || 'hadjirullaalraphy@gmail.com',
       subject: 'Verify your email',
       html: `
       <div style="font-family: Arial, sans-serif; line-height: 1.6;">
@@ -107,19 +107,19 @@ const sendVerificationCodeEmail = async ({ to, name = 'there', code }) => {
   console.log('- Code:', code);
 
   // If no SendGrid client available, return a dev fallback
-  if (!process.env.RESEND_API_KEY) {
-    console.warn('[emailService] RESEND_API_KEY missing. Skipping email send.');
+  if (!process.env.SENDGRID_API_KEY) {
+    console.warn('[emailService] SENDGRID_API_KEY missing. Skipping email send.');
     return { fallback: true };
   }
 
   try {
     console.log('[emailService] Starting email code send attempt:');
     console.log('- To:', to);
-    console.log('- From:', process.env.RESEND_FROM_EMAIL || 'hadjirullaalraphy@gmail.com');
+    console.log('- From:', process.env.SENDGRID_FROM_EMAIL || 'hadjirullaalraphy@gmail.com');
 
     const msg = {
       to: to,
-      from: process.env.RESEND_FROM_EMAIL || 'hadjirullaalraphy@gmail.com',
+      from: process.env.SENDGRID_FROM_EMAIL || 'hadjirullaalraphy@gmail.com',
       subject: 'Your verification code',
       html: `
       <div style="font-family: Arial, sans-serif; line-height: 1.6;">
