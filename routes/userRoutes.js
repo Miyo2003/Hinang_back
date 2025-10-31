@@ -416,4 +416,85 @@ router.put('/:id', authMiddleware, roleMiddleware(['admin']), userController.upd
  */
 router.delete('/:id', authMiddleware, roleMiddleware(['admin']), userController.delete);
 
+/**
+ * @openapi
+ * /users/{id}/follow:
+ *   post:
+ *     summary: Follow a user
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: User ID to follow
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User followed successfully
+ *       400:
+ *         description: Bad request
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: User not found
+ */
+router.post('/:id/follow', authMiddleware, userController.followUser);
+
+/**
+ * @openapi
+ * /users/{id}/block:
+ *   post:
+ *     summary: Block a user
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: User ID to block
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User blocked successfully
+ *       400:
+ *         description: Bad request
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: User not found
+ */
+router.post('/:id/block', authMiddleware, userController.blockUser);
+
+/**
+ * @openapi
+ * /users/{id}/connections:
+ *   get:
+ *     summary: Get user connections
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: User ID
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of user connections
+ *       400:
+ *         description: Bad request
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: User not found
+ */
+router.get('/:id/connections', authMiddleware, userController.getConnections);
+
 module.exports = router;
