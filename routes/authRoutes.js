@@ -471,4 +471,100 @@ router.get('/check-verification-status', authController.checkVerificationStatus)
 router.post('/resend-verification', authMiddleware, authController.resendVerificationEmail);
 router.post('/refresh', authController.refreshToken);
 
+/**
+ * @openapi
+ * /auth/autocomplete-address:
+ *   get:
+ *     summary: Get address autocomplete suggestions
+ *     description: Returns address suggestions for Bongao, Tawi-Tawi, Philippines based on user input
+ *     tags: [Authentication]
+ *     parameters:
+ *       - in: query
+ *         name: query
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The address query string to autocomplete
+ *         example: "Tubig"
+ *     responses:
+ *       200:
+ *         description: Address suggestions returned successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                     description: Unique place identifier
+ *                   text:
+ *                     type: string
+ *                     description: Formatted address text
+ *                   formattedAddress:
+ *                     type: string
+ *                     description: Complete formatted address
+ *                   latitude:
+ *                     type: number
+ *                     description: Latitude coordinate
+ *                   longitude:
+ *                     type: number
+ *                     description: Longitude coordinate
+ *                 example:
+ *                   - id: "51c5b6c6b8b8b8b8b8b8b8b8"
+ *                     text: "Tubig, Bongao, Tawi-Tawi"
+ *                     formattedAddress: "Tubig, Bongao, Tawi-Tawi"
+ *                     latitude: 5.029
+ *                     longitude: 119.773
+ *       400:
+ *         description: Invalid query parameter
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Query parameter is required"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
+router.get('/autocomplete-address', async (req, res) => {
+  try {
+    const { query } = req.query;
+    if (!query) {
+      return res.status(400).json({
+        success: false,
+        message: 'Query parameter is required'
+      });
+    }
+
+    const { autocompleteAddress } = require('../services/locationVerificationService');
+    const suggestions = await autocompleteAddress(query);
+
+    res.json(suggestions);
+  } catch (error) {
+    console.error('Error in autocomplete-address:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;

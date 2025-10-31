@@ -1,7 +1,65 @@
 const express = require('express');
 const router = express.Router();
-const { getProfile, updateProfile } = require('../controllers/profileController');
+const { getProfile, updateProfile, getProfileOverview } = require('../controllers/profileController');
 const { authMiddleware } = require('../middleware/authMiddleware');
+
+/**
+ * @openapi
+ * /api/profile/overview:
+ *   get:
+ *     summary: Get profile overview for dashboard
+ *     tags: [Profile]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Profile overview retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: string
+ *                         username:
+ *                           type: string
+ *                         firstName:
+ *                           type: string
+ *                         familyName:
+ *                           type: string
+ *                     worker:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: string
+ *                         skills:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *                     activeAssignments:
+ *                       type: integer
+ *                       description: Number of active job assignments
+ *                     weeklyEarnings:
+ *                       type: number
+ *                       description: Total earnings for the current week
+ *                     nextShift:
+ *                       type: object
+ *                       nullable: true
+ *                       description: Next scheduled job/shift
+ *       401:
+ *         description: Unauthorized - JWT token is missing or invalid
+ *       404:
+ *         description: Profile overview not found
+ */
+router.get('/overview', authMiddleware, getProfileOverview);
 
 /**
  * @openapi

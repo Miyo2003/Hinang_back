@@ -4,7 +4,7 @@ const ProfileModel = require('../models/profileModel');
 const getProfile = async (req, res) => {
     try {
         let userId;
-        
+
         // If accessing /me endpoint
         if (req.path === '/me') {
             userId = req.user.id;
@@ -14,23 +14,49 @@ const getProfile = async (req, res) => {
         }
 
         const profile = await ProfileModel.getProfile(userId);
-        
+
         if (!profile) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Profile not found' 
+            return res.status(404).json({
+                success: false,
+                message: 'Profile not found'
             });
         }
 
-        res.json({ 
-            success: true, 
-            data: profile 
+        res.json({
+            success: true,
+            data: profile
         });
     } catch (error) {
         console.error('Error getting profile:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Error retrieving profile' 
+        res.status(500).json({
+            success: false,
+            message: 'Error retrieving profile'
+        });
+    }
+};
+
+// Get profile overview for dashboard
+const getProfileOverview = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const overview = await ProfileModel.getProfileOverview(userId);
+
+        if (!overview) {
+            return res.status(404).json({
+                success: false,
+                message: 'Profile overview not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: overview
+        });
+    } catch (error) {
+        console.error('Error getting profile overview:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error retrieving profile overview'
         });
     }
 };
@@ -56,5 +82,6 @@ const updateProfile = async (req, res) => {
 
 module.exports = {
     getProfile,
+    getProfileOverview,
     updateProfile
 };

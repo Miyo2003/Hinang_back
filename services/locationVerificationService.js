@@ -43,6 +43,61 @@ const verifyAddress = async ({ address, latitude, longitude }) => {
   };
 };
 
+const autocompleteAddress = async (query) => {
+  const apiKey = config.maps.geoapifyApiKey;
+  if (!apiKey) {
+    throw new Error('GEOAPIFY_API_KEY environment variable is not set');
+  }
+
+  if (!query || query.length < 1) {
+    return [];
+  }
+
+  // Use Geoapify autocomplete endpoint with filters for Bongao, Tawi-Tawi, Philippines
+  const url = `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(query)}&filter=countrycode:PH&bias=proximity:5.029,119.773&apiKey=${apiKey}`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Geoapify API responded with status ${response.status}`);
+  }
+
+  const data = await response.json();
+  if (!data.features) {
+    return [];
+  }
+
+  // Filter results to only include Bongao addresses
+  const bongaoSuggestions = data.features.filter(feature => {
+    const properties = feature.properties;
+    return properties.city === 'Bongao' || properties.state === 'Tawi-Tawi';
+  });
+
+  // Format suggestions with street, barangay, municipality, province
+  return bongaoSuggestions.map(feature => {
+    const properties = feature.properties;
+    const [lng, lat] = feature.geometry.coordinates;
+
+    // Build formatted address components
+    const addressParts = [];
+    if (properties.street) addressParts.push(properties.street);
+    if (properties.suburb || properties.neighbourhood) addressParts.push(properties.suburb || properties.neighbourhood);
+    if (properties.city) addressParts.push(properties.city);
+    if (properties.state) addressParts.push(properties.state);
+
+    const formattedAddress = addressParts.join(', ');
+
+    return {
+      id: properties.place_id,
+      text: formattedAddress,
+      formattedAddress: formattedAddress,
+      latitude: lat,
+      longitude: lng,
+      properties: properties
+    };
+  });
+};
+
 module.exports = {
-  verifyAddress
+  verifyAddress,
+  autocompleteAddress
 };
